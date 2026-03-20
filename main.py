@@ -2,31 +2,59 @@ from fastapi import FastAPI
 
 app = FastAPI()
 
+# mock data
+chores = [
+    {
+        "id": 1,
+        "name": "Take out the trash",
+        "points": 10,
+        "completed": False,
+        "approved": False
+    }
+]
+users = [
+    {
+        "id": 1,
+        "name": "Parent User",
+        "role": "parent",
+        "points": 0
+    },
+    {
+        "id": 2,
+        "name": "Child User",
+        "role": "child",
+        "points": 20
+    }
+]
+
 @app.get("/")
 def read_root():
     return {"message": "API is running"}
 
+#---------------------------------------------------------------------------------------------------------------------
+# chore routes
 
 @app.get("/chores")
 def get_chores():
-    return [
-        {"id": 1, "title": "Clean room", "status": "assigned"},
-        {"id": 2, "title": "Wash dishes", "status": "completed"} 
-        
-    ]
+    return chores
 
 @app.post("/chores")
 def create_chore(chore: dict):
+    chores.append(chore)
     return {"message": "Chore created", "chore": chore}
 
-@app.post("/chores/{chore_id}/complete")
+@app.put("/chores/{chore_id}/complete")
 def complete_chore(chore_id: int):
-    return {"message": f"Chore {chore_id} marked complete"}
+    for chore in chores:
+        if chore["id"] == chore_id:
+            chore["completed"] = True
+            return {"message": f"Chore {chore_id} marked complete", "chore": chore}
+    return {"error": "Chore not found"}
 
-@app.post("/chores/{chore_id}/approve")
+@app.put("/chores/{chore_id}/approve")
 def approve_chore(chore_id: int):
-    return [
-        {"id": 1, "name": "Ice cream", "points_required": 20},
-        {"id": 2, "name": "Movie night", "points_required": 50}
-    ]
-
+    for chore in chores:
+        if chore["id"] == chore_id:
+            chore["approved"] = True
+            return {"message": f"Chore {chore_id} approved", "chore": chore}
+    return {"error": "Chore not found"}
