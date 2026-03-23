@@ -1,0 +1,52 @@
+name: QA & Integration Integrity
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Task: Validate Backend (FastAPI + SQLModel)
+  backend-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install fastapi uvicorn sqlmodel pytest bcrypt python-jose[cryptography]
+
+      - name: Security Check (CWR.12.3)
+        run: |
+          echo "Checking for sensitive data leaks in logs..."
+          # Simple grep to ensure no hardcoded secrets in the codebase
+          ! grep -r "password =" . --exclude-dir=.git
+
+      - name: Run Integration Tests
+        run: pytest
+
+  # Task: Validate Frontend (Next.js)
+  frontend-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Linting & Build Check (CWR.11.1)
+        run: |
+          npm run lint
+          npm run build
