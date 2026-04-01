@@ -132,3 +132,24 @@ def signup(user: dict):
 @app.post("/login")
 def login(credentials: dict):
     return {"message": "Login route created", "credentials": credentials}
+
+#--------------------------------------------------------------------
+#Assignment routes
+
+@app.put("/chores/{chore_id}/assign/{user_id}")
+def assign_chore(chore_id: int, user_id: int):
+    # check user exists
+    user_exists = any(user["id"] == user_id for user in users)
+    if not user_exists:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    
+    for chore in chores:
+        if chore["id"] == chore_id:
+            chore["assigned_to"] = user_id  # Assign user to the chore
+            return {
+                "message": f"Chore {chore_id} assigned to user {user_id}",
+                "chore": chore
+            }
+
+    raise HTTPException(status_code=404, detail="Chore not found")
