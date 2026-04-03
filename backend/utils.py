@@ -1,4 +1,4 @@
-# Taken directly from Breanna's utils.py
+# Edited using Breanna's utils.py
 
 from passlib.context import CryptContext
 from jose import JWTError, jwt
