@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from main import app 
 from database import get_session
-from models import User  # Fixed: Removed 'auth.'
+from models import User
 
 # --- SETUP: In-memory Database for Integration Testing ---
 # creates a fresh, empty database in RAM for every test run
