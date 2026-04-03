@@ -71,7 +71,7 @@ def test_password_security_validation():
 
 def test_auth_me_protected_route():
     """Tests CWR.12.1: Protected routes require valid login"""
-    # Try to access /auth/me without a cookie
+    # Try to access /me without a cookie
     response = client.get("/api/v1/me")
     assert response.status_code == 401 # Unauthorized
 
