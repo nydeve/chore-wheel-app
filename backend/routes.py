@@ -7,9 +7,9 @@ from typing import Optional
 from datetime import datetime
 
 from database import get_session
-from auth.models import User, UserRole
-from auth.utils import hash_password, verify_password, create_access_token
-from auth.dependencies import get_current_user
+from models import User, UserRole            
+from utils import hash_password, verify_password, create_access_token  
+from roles import get_current_user            
 
 
 router = APIRouter()
