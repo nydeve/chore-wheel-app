@@ -9,7 +9,7 @@ app = FastAPI()
 def on_startup():
     SQLModel.metadata.create_all(engine)
 
-app.include_router(auth_router)
+app.include_router(auth_router, prefix="/api/v1", tags=["Authentication"])
 
 @app.get("/")
 def root():
