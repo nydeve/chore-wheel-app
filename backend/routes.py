@@ -57,7 +57,7 @@ class TokenResponse(BaseModel):
 
 
 # ── POST /auth/register ────────────────────────────────────────
-@router.post("/auth/register", response_model=TokenResponse, status_code=201)
+@router.post("/register", response_model=TokenResponse, status_code=201)
 def register(
     body: RegisterRequest,
     response: Response,
@@ -104,7 +104,7 @@ def register(
 
 
 # ── POST /auth/login ───────────────────────────────────────────
-@router.post("/auth/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse)
 def login(
     body: LoginRequest,
     response: Response,
@@ -152,7 +152,7 @@ def login(
 
 
 # ── POST /auth/logout ──────────────────────────────────────────
-@router.post("/auth/logout")
+@router.post("/logout")
 def logout(response: Response):
     """
     Logs the user out by deleting their JWT cookie.
@@ -163,7 +163,7 @@ def logout(response: Response):
 
 
 # ── GET /auth/me ───────────────────────────────────────────────
-@router.get("/auth/me", response_model=UserResponse)
+@router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
     """
     Returns the currently logged-in user's info.
