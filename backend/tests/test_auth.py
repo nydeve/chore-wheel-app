@@ -44,7 +44,7 @@ def test_register_and_login_workflow():
         "password": "securepassword123",
         "display_name": "Carla QA"
     }
-    reg_res = client.post("/auth/register", json=reg_payload)
+    reg_res = client.post("/api/v1/register", json=reg_payload)
     assert reg_res.status_code == 201
     assert "access_token" in reg_res.cookies
 
@@ -53,7 +53,7 @@ def test_register_and_login_workflow():
         "email": "carla_test@example.com",
         "password": "securepassword123"
     }
-    login_res = client.post("/auth/login", json=login_payload)
+    login_res = client.post("/api/v1/login", json=login_payload)
     assert login_res.status_code == 200
     assert "access_token" in login_res.cookies
     assert login_res.json()["user"]["display_name"] == "Carla QA"
@@ -65,22 +65,22 @@ def test_password_security_validation():
         "password": "123", # Too short
         "display_name": "Bad Tester"
     }
-    response = client.post("/auth/register", json=payload)
+    response = client.post("/api/v1/register", json=payload)
     assert response.status_code == 422 
     assert "at least 8 characters" in response.text
 
 def test_auth_me_protected_route():
     """Tests CWR.12.1: Protected routes require valid login"""
     # Try to access /auth/me without a cookie
-    response = client.get("/auth/me")
+    response = client.get("/api/v1/me")
     assert response.status_code == 401 # Unauthorized
 
 def test_logout_behavior():
     """Tests /auth/logout deletes the session cookie"""
     # Simulate a logged in state by setting a fake cookie or logging in
-    client.post("/auth/login", json={"email": "carla_test@example.com", "password": "securepassword123"})
+    client.post("/api/v1/login", json={"email": "carla_test@example.com", "password": "securepassword123"})
     
-    response = client.post("/auth/logout")
+    response = client.post("/api/v1/logout")
     assert response.status_code == 200
     # access_token cookie should be gone or cleared
     assert response.cookies.get("access_token") in [None, ""]
