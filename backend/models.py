@@ -16,6 +16,8 @@ class User(SQLModel, table=True):
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+    parent_id: Optional[int] = Field(default=None, foreign_key="user.id")
+
 # Portia's code (Converted to SQLModel so it works with the Login system)
 class Chore(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
