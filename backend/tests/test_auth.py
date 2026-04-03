@@ -1,11 +1,15 @@
+import sys
+import os
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from main import app 
 from database import get_session
-from auth.models import User
+from models import User  # Fixed: Removed 'auth.'
 
 # --- SETUP: In-memory Database for Integration Testing ---
 # creates a fresh, empty database in RAM for every test run
