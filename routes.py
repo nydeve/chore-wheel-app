@@ -264,7 +264,7 @@ def delete_child(
     child = session.get(User, user_id)
     if child is None:
         raise HTTPException(status_code=404, detail="User not found.")
-    if child.parent_id != current_parent.id:           # ← Week 4 auth check
+    if child.parent_id != current_parent.id:    #auth check
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="You can only delete accounts in your own family.")
     session.delete(child)
@@ -299,7 +299,7 @@ def generate_invite(
     )
 
 @router.post("/auth/register/child", response_model=TokenResponse, status_code=201)
-@limiter.limit("5/minute")        # ← Week 5: also rate-limit child registration
+@limiter.limit("5/minute")        # also rate-limit child registration
 def register_child(
     request:  Request,
     body:     ChildRegisterRequest,
