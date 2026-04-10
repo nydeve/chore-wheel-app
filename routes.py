@@ -1,3 +1,5 @@
+# Taken directly from Breanna's routes.py
+import secrets
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from sqlmodel import Session, select
 from pydantic import BaseModel, EmailStr, field_validator
@@ -5,9 +7,11 @@ from typing import Optional
 from datetime import datetime
 
 from database import get_session
-from auth.models import User, UserRole
-from auth.utils import hash_password, verify_password, create_access_token
-from auth.dependencies import get_current_user
+from models import User, UserRole
+from utils import hash_password, verify_password, create_access_token
+from roles import get_current_user, require_parent, require_child
+from rate_limit import limiter  
+
 
 
 router = APIRouter()
@@ -53,9 +57,29 @@ class TokenResponse(BaseModel):
     message: str
     user: UserResponse
 
+class InviteResponse(BaseModel):
+    message:     str
+    invite_code: str
+    invite_link: str
+
+
+#HELPER
+def _issue_cookie(response: Response, user: User) -> None:
+    token = create_access_token(user_id=user.id, role=user.role.value)
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=False,
+        max_age=60 * 60 * 24
+    )
+
+
 
 # ── POST /auth/register ────────────────────────────────────────
 @router.post("/auth/register", response_model=TokenResponse, status_code=201)
+@limiter.limit("5/minute")        #  max 5 registrations/min per IP
 def register(
     body: RegisterRequest,
     response: Response,
@@ -163,9 +187,133 @@ def logout(response: Response):
 # ── GET /auth/me ───────────────────────────────────────────────
 @router.get("/auth/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
-    """
-    Returns the currently logged-in user's info.
-
-    If not logged in, returns 401 automatically (handled by get_current_user).
-    """
     return UserResponse.model_validate(current_user)
+
+
+#profile update
+@router.put("/auth/me", response_model=UserResponse)
+def update_profile(
+    body:         UpdateProfileRequest,
+    current_user: User    = Depends(get_current_user),
+    session:      Session = Depends(get_session),
+):
+    if body.display_name:
+        current_user.display_name = body.display_name
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+    return UserResponse.model_validate(current_user)
+
+# ───── Parent View Children -- Role handaling ───────────────────
+
+@router.get("/users", response_model=list[UserResponse])
+def list_children(
+    current_parent: User    = Depends(require_parent),
+    session:        Session = Depends(get_session),
+):
+    children = session.exec(
+        select(User).where(User.parent_id == current_parent.id)
+    ).all()
+    return [UserResponse.model_validate(c) for c in children]
+
+# ───── Child management -- auth checks ────────────────────────────
+
+@router.get("/users/{user_id}", response_model=UserResponse)
+def get_child(
+    user_id:        int,
+    current_parent: User    = Depends(require_parent),
+    session:        Session = Depends(get_session),
+):
+    child = session.get(User, user_id)
+    if child is None:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if child.parent_id != current_parent.id:           # ← Week 4 auth check
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You can only view profiles in your own family.")
+    return UserResponse.model_validate(child)
+ 
+@router.delete("/users/{user_id}")
+def delete_child(
+    user_id:        int,
+    current_parent: User    = Depends(require_parent),
+    session:        Session = Depends(get_session),
+):
+    child = session.get(User, user_id)
+    if child is None:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if child.parent_id != current_parent.id:           # ← Week 4 auth check
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You can only delete accounts in your own family.")
+    session.delete(child)
+    session.commit()
+    return {"message": f"Account for '{child.display_name}' has been deleted."}
+
+# ───── Invite system ────────────────────────────
+
+@router.post("/users/invite", response_model=InviteResponse)
+def generate_invite(
+    request:        Request,
+    current_parent: User    = Depends(require_parent),
+    session:        Session = Depends(get_session),
+):
+    """
+    Parent generates a one-time invite code. Calling again replaces the old one.
+    Share the invite_link with your child (text it, email it, show it on screen).
+    """
+    code = secrets.token_urlsafe(16)
+    current_parent.invite_code = code
+    session.add(current_parent)
+    session.commit()
+    session.refresh(current_parent)
+ 
+    base_url    = str(request.base_url).rstrip("/")
+    invite_link = f"{base_url}/register/child?code={code}"
+ 
+    return InviteResponse(
+        message="Invite code generated. Share the link with your child.",
+        invite_code=code,
+        invite_link=invite_link,
+    )
+
+@router.post("/auth/register/child", response_model=TokenResponse, status_code=201)
+@limiter.limit("5/minute")        # ← Week 5: also rate-limit child registration
+def register_child(
+    request:  Request,
+    body:     ChildRegisterRequest,
+    response: Response,
+    session:  Session = Depends(get_session),
+):
+    """
+    Child completes account creation with the invite code (CWR.1.5).
+    Code is burned immediately after use so it can't be reused (CWR.1.6).
+    """
+    parent = session.exec(
+        select(User).where(User.invite_code == body.invite_code)
+    ).first()
+ 
+    if parent is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired invite code.",
+        )
+ 
+    child = User(
+        email=f"child_{secrets.token_hex(4)}@local",
+        hashed_password=hash_password(body.password),
+        display_name=body.display_name,
+        role=UserRole.CHILD,
+        parent_id=parent.id,
+    )
+    session.add(child)
+ 
+    parent.invite_code = None   # burn the code
+    session.add(parent)
+ 
+    session.commit()
+    session.refresh(child)
+ 
+    _issue_cookie(response, child)
+    return TokenResponse(
+        message=f"Welcome, {child.display_name}! Your account is ready.",
+        user=UserResponse.model_validate(child),
+    )
