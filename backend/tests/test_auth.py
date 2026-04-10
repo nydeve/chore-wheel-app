@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from main import app 
 from database import get_session
-from auth.models import User, UserRole 
+from models import User, UserRole, Chore
 
 TEST_DATABASE_URL = "sqlite://"
 engine = create_engine(
@@ -100,3 +100,19 @@ def test_duplicate_email_registration():
     response = client.post("/auth/register", json=payload)
     assert response.status_code == 409
     assert "already exists" in response.json()["detail"]
+
+def test_chore_workflow():
+    # 1. Create a chore
+    payload = {"title": "Clean Room", "points_worth": 100}
+    res = client.post("/chores", json=payload)
+    assert res.status_code == 200
+    chore_id = res.json()["id"]
+
+    # 2. Complete it
+    comp_res = client.post(f"/chores/{chore_id}/complete")
+    assert comp_res.status_code == 200
+    
+    # 3. Approve it
+    appr_res = client.post(f"/chores/{chore_id}/approve")
+    assert appr_res.status_code == 200
+    assert "points awarded" in appr_res.json()["message"]
