@@ -31,6 +31,19 @@ users = [
         "points": 20
     }
 ]
+rewards = [
+    {
+        "id": 1,
+        "name": "Ice Cream",
+        "cost": 10
+    },
+    {
+        "id": 2,
+        "name": "Movie Night",
+        "cost": 25
+    }
+]
+
 
 #--------------------------------------------------
 # root
@@ -85,8 +98,25 @@ def complete_chore(chore_id: int):
 def approve_chore(chore_id: int):
     for chore in chores:
         if chore["id"] == chore_id:
+            if not chore["completed"]:
+                raise HTTPException(status_code=400, detail="Chore must be completed before approval")
+
+            if chore["approved"]:
+                raise HTTPException(status_code=400, detail="Chore already approved")
+
             chore["approved"] = True
-            return {"message": f"Chore {chore_id} approved", "chore": chore}
+
+            # award points to assigned user
+            assigned_user = next((user for user in users if user["id"] == chore["assigned_to"]), None)
+            if assigned_user:
+                assigned_user["points"] += chore["points"]
+
+            return {
+                "message": f"Chore {chore_id} approved and points awarded",
+                "chore": chore,
+                "user": assigned_user
+            }
+
     raise HTTPException(status_code=404, detail="Chore not found")
 
 
@@ -119,6 +149,40 @@ def get_user(user_id: int):
 def create_user(user: dict):
     users.append(user)
     return {"message": "User created", "user": user}
+
+@app.get("/rewards")
+def get_rewards():
+    return rewards
+
+
+@app.get("/rewards/{reward_id}")
+def get_reward(reward_id: int):
+    for reward in rewards:
+        if reward["id"] == reward_id:
+            return reward
+    raise HTTPException(status_code=404, detail="Reward not found")
+
+
+@app.put("/users/{user_id}/redeem/{reward_id}")
+def redeem_reward(user_id: int, reward_id: int):
+    user = next((user for user in users if user["id"] == user_id), None)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    reward = next((reward for reward in rewards if reward["id"] == reward_id), None)
+    if not reward:
+        raise HTTPException(status_code=404, detail="Reward not found")
+
+    if user["points"] < reward["cost"]:
+        raise HTTPException(status_code=400, detail="Not enough points to redeem this reward")
+
+    user["points"] -= reward["cost"]
+
+    return {
+        "message": f"Reward '{reward['name']}' redeemed successfully",
+        "user": user,
+        "reward": reward
+    }
 
 #---------------------------------------------------------------------------------
 
