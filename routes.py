@@ -57,6 +57,29 @@ class TokenResponse(BaseModel):
     message: str
     user: UserResponse
 
+class UpdateProfileRequest(BaseModel):
+    display_name: Optional[str] = None
+
+    @field_validator("display_name")
+    @classmethod
+    def name_not_empty(cls, v):
+        if v is not None and not v.strip():
+            raise ValueError("Display name cannot be empty")
+        return v.strip() if v else v
+
+
+class ChildRegisterRequest(BaseModel):
+    invite_code:  str
+    password:     str
+    display_name: str
+
+    @field_validator("password")
+    @classmethod
+    def password_length(cls, v):
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
+
 class InviteResponse(BaseModel):
     message:     str
     invite_code: str
