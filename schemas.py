@@ -1,3 +1,5 @@
+#no longer needed
+'''
 from pydantic import BaseModel
 
 class ChoreCreate(BaseModel):
@@ -19,3 +21,4 @@ class RewardResponse(BaseModel):
 
     class Config:
         orm_mode = True
+'''
