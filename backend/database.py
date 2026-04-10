@@ -1,3 +1,5 @@
+#same as Portia's
+
 from sqlmodel import SQLModel, create_engine, Session
 
 DATABASE_URL = "sqlite:///./chores.db"
