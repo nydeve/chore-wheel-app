@@ -1,5 +1,3 @@
-# Breanna's main needs to be this 
-
 from fastapi import FastAPI, Depends, HTTPException
 from sqlmodel import Session, select
 from database import engine, get_session, create_db_and_tables
@@ -13,27 +11,27 @@ def on_startup():
     create_db_and_tables()
 
 # Path will be: /api/v1/auth/login
-app.include_router(auth_router, prefix="/api/v1", tags=["Authentication"])
+app.include_router(auth_router)
 
 @app.get("/")
 def root():
     return {"message": "Chore Wheel API Integrated and Running"}
 
 # Path will be: /api/v1/chores
-@app.get("/api/v1/chores")
+@app.get("/chores")
 def get_chores(session: Session = Depends(get_session)):
     statement = select(Chore)
     results = session.exec(statement).all()
     return results
 
-@app.post("/api/v1/chores")
+@app.post("/chores")
 def create_chore(chore: Chore, session: Session = Depends(get_session)):
     session.add(chore)
     session.commit()
     session.refresh(chore)
     return chore
 
-@app.post("/api/v1/chores/{chore_id}/complete")
+@app.post("/chores/{chore_id}/complete")
 def complete_chore(chore_id: int, session: Session = Depends(get_session)):
     chore = session.get(Chore, chore_id)
     if not chore:
@@ -44,7 +42,7 @@ def complete_chore(chore_id: int, session: Session = Depends(get_session)):
     session.commit()
     return {"message": f"Chore {chore_id} sent for approval"}
 
-@app.post("/api/v1/chores/{chore_id}/approve")
+@app.post("/chores/{chore_id}/approve")
 def approve_chore(chore_id: int, session: Session = Depends(get_session)):
     chore = session.get(Chore, chore_id)
     if not chore or chore.status != "pending_approval":
