@@ -68,7 +68,7 @@ def test_auth_me_protected_route():
     """Tests CWR.12.1: Protected routes using get_current_user"""
     response = client.get("/auth/me")
     assert response.status_code == 401
-    assert "Not logged in" in response.json()["detail"]
+    assert "User account not found" in response.json()["detail"]
 
 def test_logout_behavior():
     """Tests /auth/logout deletes the session cookie"""
