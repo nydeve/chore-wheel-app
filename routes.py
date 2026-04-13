@@ -46,6 +46,7 @@ class UserResponse(BaseModel):
     role: UserRole
     parent_id: Optional[int]
     created_at: datetime
+    total_points: int
 
     model_config = {"from_attributes": True}
 
@@ -134,7 +135,8 @@ def register(
 @router.post("/auth/login", response_model=TokenResponse)
 @limiter.limit("5/minute")
 def login(
-    request: Request,         
+    request: Request,
+    body: LoginRequest,
     response: Response,
     session: Session = Depends(get_session)
 ):
@@ -244,8 +246,9 @@ def generate_invite(
     session.commit()
     session.refresh(current_parent)
 
-    base_url = str(request.base_url).rstrip("/")
-    invite_link = f"{base_url}/register/child?code={code}"
+    origin = request.headers.get("origin")
+    base_url = origin.rstrip("/") if origin else "http://localhost:3000"
+    invite_link = f"{base_url}/auth/register/child?code={code}"
 
     return InviteResponse(
         message="Invite code generated. Share the link with your child.",

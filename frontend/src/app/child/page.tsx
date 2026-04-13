@@ -1,30 +1,72 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, AlertCircle } from "lucide-react";
+import { CheckCircle2, CircleDashed } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function ChildDashboardPage() {
-  const currentPoints = 150;
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [chores, setChores] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fallback target for the progress bar if store isn't built yet
   const targetReward = { name: "Extra Video Games", cost: 200 };
-  const progressPercent = Math.min(100, Math.round((currentPoints / targetReward.cost) * 100));
 
-  const todayChores = [
-    { id: 1, title: "Clean Room", points: 20, status: "Active" },
-    { id: 2, title: "Feed the Dog", points: 5, status: "Completed" }
-  ];
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const overdueChores = [
-    { id: 3, title: "Take out Trash", points: 15, daysOverdue: 1 }
-  ];
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const userData = await api.auth.me();
+      
+      if (userData.role === "parent") {
+        router.push("/parent");
+        return;
+      }
+      
+      setUser(userData);
+
+      const allChores = await api.chores.getAll();
+      const myChores = allChores.filter((c: any) => c.user_id === userData.id);
+      setChores(myChores);
+    } catch (e: any) {
+      console.error(e);
+      if (e.message?.includes("Not logged in")) {
+        router.push("/auth/login");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCompleteChore = async (choreId: number) => {
+    try {
+      await api.chores.complete(choreId);
+      loadData();
+    } catch(e: any) {
+      alert("Failed to mark done: " + e.message);
+    }
+  };
+
+  if (loading || !user) {
+    return <div className="text-gray-500 animate-pulse text-center mt-10 font-bold text-xl">Loading Wallet...</div>;
+  }
+
+  const currentPoints = user.total_points;
+  const progressPercent = Math.min(100, Math.max(0, Math.round((currentPoints / targetReward.cost) * 100)));
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
       <div className="text-center md:text-left">
-        <h1 className="text-4xl font-black text-gray-900 tracking-tight">Welcome back, Sam! 👋</h1>
+        <h1 className="text-4xl font-black text-gray-900 tracking-tight">Welcome back, {user.display_name}! 👋</h1>
         <p className="text-lg text-gray-600 mt-2 font-medium">Ready to earn some points today?</p>
       </div>
 
@@ -66,55 +108,41 @@ export default function ChildDashboardPage() {
         </Card>
 
         <div className="space-y-6">
-          {/* Overdue Chores Alert (Only shown if there are overdue chores) */}
-          {overdueChores.length > 0 && (
-            <Card className="border-red-200 bg-red-50 shadow-md animate-in slide-in-from-right-8 duration-500 delay-150 fill-mode-both">
-              <CardHeader className="py-3 px-4 flex flex-row items-center border-b border-red-100 gap-2">
-                <AlertCircle className="text-red-500 h-5 w-5" />
-                <CardTitle className="text-red-700 text-lg">Overdue Tasks</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                {overdueChores.map(chore => (
-                  <div key={chore.id} className="flex items-center justify-between p-4 border-b border-red-100 last:border-0 hover:bg-red-100/50 transition">
-                    <div>
-                      <h3 className="font-bold text-gray-800">{chore.title}</h3>
-                      <p className="text-xs text-red-600 font-semibold">{chore.daysOverdue} day(s) late!</p>
-                    </div>
-                    <Button size="sm" className="bg-red-600 hover:bg-red-700 font-bold h-8">Do it now</Button>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Today's Chores */}
+          {/* My Chores */}
           <Card className="shadow-lg border-t-4 border-t-green-500 animate-in slide-in-from-right-8 duration-500 delay-300 fill-mode-both">
             <CardHeader className="py-4">
-              <CardTitle className="text-xl">Today&apos;s Chores</CardTitle>
+              <CardTitle className="text-xl">My Assigned Chores</CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
-              {todayChores.map(chore => (
-                <div key={chore.id} className="flex items-center justify-between p-4 border-t hover:bg-gray-50 transition">
-                  <div className="flex items-center gap-3">
-                    {chore.status === "Completed" ? (
-                      <CheckCircle2 className="h-6 w-6 text-green-500" />
-                    ) : (
-                      <div className="h-6 w-6 rounded-full border-2 border-gray-300" />
-                    )}
-                    <div>
-                      <h3 className={`font-bold ${chore.status === "Completed" ? "text-gray-500 line-through" : "text-gray-900"}`}>
-                        {chore.title}
-                      </h3>
-                      <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs mt-1 border-transparent">
-                        +{chore.points} pts
-                      </Badge>
+            <CardContent className="p-0 border-t">
+              {chores.length === 0 ? (
+                <div className="p-8 text-center text-gray-500 font-bold">You have zero assigned chores! 🎉</div>
+              ) : (
+                chores.map(chore => (
+                  <div key={chore.id} className="flex items-center justify-between p-4 border-b last:border-0 hover:bg-gray-50 transition">
+                    <div className="flex items-center gap-3">
+                      {chore.status === "completed" || chore.status === "pending_approval" ? (
+                        <CheckCircle2 className={`h-6 w-6 ${chore.status === 'completed' ? 'text-green-500' : 'text-yellow-500'}`} />
+                      ) : (
+                        <CircleDashed className="h-6 w-6 text-gray-300" />
+                      )}
+                      <div>
+                        <h3 className={`font-bold ${chore.status === "completed" ? "text-gray-400 line-through" : "text-gray-900"}`}>
+                          {chore.title}
+                        </h3>
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs mt-1 border-transparent">
+                          +{chore.points_worth} pts
+                        </Badge>
+                      </div>
                     </div>
+                    {chore.status === "assigned" && (
+                      <Button size="sm" onClick={() => handleCompleteChore(chore.id)} variant="outline" className="font-bold border-2 border-green-200 text-green-700 hover:bg-green-50">Mark Done</Button>
+                    )}
+                    {chore.status === "pending_approval" && (
+                      <span className="text-xs font-bold text-yellow-600 bg-yellow-100 px-2 py-1 rounded">Waiting for Review</span>
+                    )}
                   </div>
-                  {chore.status !== "Completed" && (
-                    <Button size="sm" variant="outline" className="font-bold border-2">Mark Done</Button>
-                  )}
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
         </div>

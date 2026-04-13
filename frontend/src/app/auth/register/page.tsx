@@ -6,22 +6,42 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, AlertCircle } from "lucide-react";
+import { api } from "@/lib/api";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+
     if (password !== confirmPassword) {
-      alert("Passwords do not match");
+      setError("Passwords do not match");
       return;
     }
-    // TODO: implement actual sign up api logic
-    router.push("/parent");
+
+    setLoading(true);
+    try {
+      const response = await api.auth.register({ 
+        email, 
+        password, 
+        display_name: displayName 
+      });
+      if (response) {
+        router.push("/parent");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to create account. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -78,7 +98,26 @@ export default function RegisterPage() {
              <p className="text-gray-500 text-lg md:text-xl font-semibold">Create your Parent administrative account.</p>
            </div>
 
+           {error && (
+             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 flex items-center gap-3">
+               <AlertCircle className="h-5 w-5 shrink-0" />
+               <p className="font-semibold text-sm">{error}</p>
+             </div>
+           )}
+
            <form onSubmit={handleRegister} className="space-y-6">
+             <div className="space-y-3">
+               <Label htmlFor="displayName" className="text-gray-700 font-bold text-base">Display Name</Label>
+               <Input
+                 id="displayName"
+                 type="text"
+                 placeholder="Mom, Dad, or Name"
+                 required
+                 className="h-14 px-4 text-lg bg-white border-gray-200 shadow-sm focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all rounded-xl"
+                 value={displayName}
+                 onChange={(e) => setDisplayName(e.target.value)}
+               />
+             </div>
              <div className="space-y-3">
                <Label htmlFor="email" className="text-gray-700 font-bold text-base">Email Address</Label>
                <Input
@@ -120,8 +159,8 @@ export default function RegisterPage() {
                />
              </div>
 
-             <Button type="submit" className="w-full h-14 text-lg font-black shadow-lg shadow-primary/30 hover:shadow-xl hover:-translate-y-1 transition-all mt-4 rounded-xl">
-               Create Account
+             <Button disabled={loading} type="submit" className="w-full h-14 text-lg font-black shadow-lg shadow-primary/30 hover:shadow-xl hover:-translate-y-1 transition-all mt-4 rounded-xl">
+               {loading ? "Creating Account..." : "Create Account"}
              </Button>
            </form>
 

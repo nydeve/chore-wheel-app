@@ -6,19 +6,34 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, AlertCircle } from "lucide-react";
+import { api } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.includes("parent")) {
-      router.push("/parent");
-    } else {
-      router.push("/child");
+    setError("");
+    setLoading(true);
+
+    try {
+      const response = await api.auth.login({ email, password });
+      if (response && response.user) {
+        if (response.user.role === "parent") {
+          router.push("/parent");
+        } else {
+          router.push("/child");
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to login. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -82,6 +97,13 @@ export default function LoginPage() {
              <p className="text-gray-500 text-lg md:text-xl font-semibold">Enter your credentials to access your account.</p>
            </div>
 
+           {error && (
+             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 flex items-center gap-3">
+               <AlertCircle className="h-5 w-5 shrink-0" />
+               <p className="font-semibold text-sm">{error}</p>
+             </div>
+           )}
+
            <form onSubmit={handleLogin} className="space-y-6">
              <div className="space-y-3">
                <Label htmlFor="email" className="text-gray-700 font-bold text-base">Email Address</Label>
@@ -114,8 +136,8 @@ export default function LoginPage() {
                />
              </div>
 
-             <Button type="submit" className="w-full h-14 text-lg font-black shadow-lg shadow-primary/30 hover:shadow-xl hover:-translate-y-1 transition-all mt-4 rounded-xl">
-               Login to Account
+             <Button disabled={loading} type="submit" className="w-full h-14 text-lg font-black shadow-lg shadow-primary/30 hover:shadow-xl hover:-translate-y-1 transition-all mt-4 rounded-xl">
+               {loading ? "Logging in..." : "Login to Account"}
              </Button>
            </form>
 

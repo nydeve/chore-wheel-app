@@ -41,7 +41,7 @@ The backend handles database relations using SQLite and SQLModel, providing a st
 - pip
 
 ### Running Locally
-(ive never used fastapi so idk)
+python3 -m uvicorn main:app --reload
 
 ---
 

@@ -1,11 +1,41 @@
+"use client";
+
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { LogOut } from "lucide-react";
 
 export default function ChildLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const data = await api.auth.me();
+        setUser(data);
+      } catch(e) {
+        // Will be caught by page.tsx redirect
+      }
+    };
+    fetchUser();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await api.auth.logout();
+      router.push("/auth/login");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-blue-50/80 to-indigo-50/40 relative overflow-hidden">
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03] pointer-events-none"></div>
@@ -22,17 +52,23 @@ export default function ChildLayout({
             </nav>
           </div>
           <div className="flex items-center space-x-4">
-            <div className="bg-blue-100 text-blue-800 font-bold px-3 py-1 rounded-full text-sm">
-               🌟 150 Points
-            </div>
+            {user && (
+              <div className="bg-blue-100 text-blue-800 font-bold px-3 py-1 rounded-full text-sm flex gap-1 items-center">
+                 🌟 {user.total_points} pts
+              </div>
+            )}
             <Avatar className="ring-2 ring-primary ring-offset-2">
-              <AvatarImage src="" alt="Child Avatar" />
-              <AvatarFallback className="bg-primary text-white font-bold">S</AvatarFallback>
+              <AvatarFallback className="bg-primary text-white font-bold">
+                 {user ? user.display_name.charAt(0).toUpperCase() : "?"}
+              </AvatarFallback>
             </Avatar>
+            <button onClick={handleLogout} className="text-gray-500 hover:text-red-500 transition-colors" title="Log out">
+              <LogOut className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </header>
-      <main className="flex-1 container mx-auto px-4 py-8">
+      <main className="flex-1 container mx-auto px-4 py-8 relative z-10">
         {children}
       </main>
     </div>

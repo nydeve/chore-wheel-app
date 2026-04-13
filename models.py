@@ -1,9 +1,24 @@
+from enum import Enum
 from typing import List, Optional
+from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
+
+class UserRole(str, Enum):
+    PARENT = "parent"
+    CHILD = "child"
 
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    username: str = Field(index=True, unique=True)
+    email: str = Field(index=True, unique=True)
+    hashed_password: str
+    display_name: str
+    role: UserRole
+    
+    is_active: bool = Field(default=True)
+    parent_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    invite_code: Optional[str] = Field(default=None, unique=True, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
     total_points: int = Field(default=0)
     
     chores: List["Chore"] = Relationship(back_populates="assigned_user")
@@ -22,31 +37,3 @@ class Reward(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     points_required: int
-
-
-
-
-
-''' #previous code:
-from sqlalchemy import Column, Integer, String, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from datetime import datetime
-
-Base = declarative_base()
-
-class Chore(Base):
-    __tablename__ = "chores"
-
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, nullable=False)
-    status = Column(String, default="assigned")
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
-class Reward(Base):
-    __tablename__ = "rewards"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    points_required = Column(Integer)
-'''

@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 
 from database import engine, get_session, create_db_and_tables
@@ -9,6 +10,14 @@ from slowapi.errors import RateLimitExceeded
 from rate_limit import limiter, rate_limit_handler
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://10.0.0.146:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Register the rate limiter
 app.state.limiter = limiter
@@ -66,3 +75,13 @@ def approve_chore(chore_id: int, session: Session = Depends(get_session)):
     session.add(chore)
     session.commit()
     return {"message": "Chore approved and points awarded"}
+
+@app.delete("/chores/{chore_id}")
+def delete_chore(chore_id: int, session: Session = Depends(get_session)):
+    chore = session.get(Chore, chore_id)
+    if not chore:
+        raise HTTPException(status_code=404, detail="Chore not found")
+    
+    session.delete(chore)
+    session.commit()
+    return {"message": "Chore deleted completely"}

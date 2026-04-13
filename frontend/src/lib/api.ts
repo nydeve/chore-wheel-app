@@ -44,17 +44,29 @@ export async function fetchAPI(endpoint: string, options: RequestInit = {}) {
 
 // Example specific endpoint callers
 export const api = {
+  auth: {
+    register: (data: any) => fetchAPI("/auth/register", { method: "POST", body: JSON.stringify(data) }),
+    login: (data: any) => fetchAPI("/auth/login", { method: "POST", body: JSON.stringify(data) }),
+    logout: () => fetchAPI("/auth/logout", { method: "POST" }),
+    me: () => fetchAPI("/auth/me"),
+    updateProfile: (data: any) => fetchAPI("/auth/me", { method: "PUT", body: JSON.stringify(data) }),
+    registerChild: (data: any) => fetchAPI("/auth/register/child", { method: "POST", body: JSON.stringify(data) }),
+  },
   chores: {
-    getAll: () => fetchAPI("/api/chores"),
-    create: (data: any) => fetchAPI("/api/chores", { method: "POST", body: JSON.stringify(data) }),
-    update: (id: number, data: any) => fetchAPI(`/api/chores/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-    delete: (id: number) => fetchAPI(`/api/chores/${id}`, { method: "DELETE" }),
+    getAll: () => fetchAPI("/chores"),
+    create: (data: any) => fetchAPI("/chores", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: any) => fetchAPI(`/chores/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    complete: (id: number) => fetchAPI(`/chores/${id}/complete`, { method: "PUT" }),
+    approve: (id: number) => fetchAPI(`/chores/${id}/approve`, { method: "PUT" }),
+    delete: (id: number) => fetchAPI(`/chores/${id}`, { method: "DELETE" }),
   },
   rewards: {
-    getAll: () => fetchAPI("/api/rewards/active"),
-    redeem: (id: number) => fetchAPI(`/api/rewards/redeem`, { method: "POST", body: JSON.stringify({ reward_id: id }) }),
+    getAll: () => fetchAPI("/rewards"),
+    redeem: (userId: number, id: number) => fetchAPI(`/users/${userId}/redeem/${id}`, { method: "PUT" }),
   },
   users: {
-    me: () => fetchAPI("/users/me"),
+    getAll: () => fetchAPI("/users"),
+    getOptions: () => fetchAPI("/users"),
+    invite: () => fetchAPI("/users/invite", { method: "POST" }),
   }
 };

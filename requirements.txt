@@ -5,4 +5,5 @@ python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
 python-dotenv
-
+slowapi
+pydantic[email]
