@@ -128,9 +128,9 @@ def test_cannot_approve_before_complete():
     appr_res = client.post(f"/chores/{chore_id}/approve")
     
     assert appr_res.status_code == 400
-    assert "not completed" in appr_res.json()["detail"].lower()
+    assert "invalid chore state" in appr_res.json()["detail"].lower()
 
-def test_child_cannot_approve_own_chore(client):
+def test_child_cannot_approve_own_chore():
     child_token = register_and_login_as("child") 
     
     response = client.post(
@@ -142,7 +142,7 @@ def test_child_cannot_approve_own_chore(client):
     assert "Only parents can approve chores" in response.json()["detail"]
 
 
-def test_child_cannot_assign_chore(client):
+def test_child_cannot_assign_chore():
     """Ensure a child cannot call the assignment endpoint"""
     child_token = register_and_login_as("child") 
     
@@ -154,7 +154,7 @@ def test_child_cannot_assign_chore(client):
     assert response.status_code == 403
 
 
-def test_parent_chore_lifecycle(client):
+def test_parent_chore_lifecycle():
     """
     Tests the full Happy Path: Parent creates, assigns, and approves.
     This is the core requirement of your project.
