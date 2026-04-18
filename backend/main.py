@@ -3,6 +3,7 @@ from sqlmodel import Session, select
 from database import engine, get_session, create_db_and_tables
 from models import User, Chore, Reward
 from routes import router as auth_router
+from roles import get_current_user
 
 app = FastAPI()
 
@@ -25,7 +26,10 @@ def get_chores(session: Session = Depends(get_session)):
     return results
 
 @app.post("/chores")
-def create_chore(chore: Chore, session: Session = Depends(get_session)):
+def create_chore(chore: Chore, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)):
+    if current_user.role != "parent":
+         raise HTTPException(status_code=403, detail="Only parents can create chores")
+    
     session.add(chore)
     session.commit()
     session.refresh(chore)
@@ -43,7 +47,10 @@ def complete_chore(chore_id: int, session: Session = Depends(get_session)):
     return {"message": f"Chore {chore_id} sent for approval"}
 
 @app.post("/chores/{chore_id}/approve")
-def approve_chore(chore_id: int, session: Session = Depends(get_session)):
+def approve_chore(chore_id: int, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)):
+    if current_user.role != "parent":
+        raise HTTPException(status_code=403, detail="Only parents can approve chores")
+    
     chore = session.get(Chore, chore_id)
     if not chore or chore.status != "pending_approval":
         raise HTTPException(status_code=400, detail="Invalid chore state")
