@@ -11,6 +11,19 @@ from main import app
 from database import get_session
 from models import User, UserRole, Chore
 
+
+def register_and_login_as(role: str):
+    """Helper to keep tests clean"""
+    user_data = {
+        "email": f"{role}@test.com",
+        "password": "securepassword123",
+        "display_name": role.capitalize()
+    }
+    client.post("/auth/register", json=user_data)
+    login_res = client.post("/auth/login", json={"email": user_data["email"], "password": "securepassword123"})
+    return login_res.cookies.get("access_token")
+
+
 TEST_DATABASE_URL = "sqlite://"
 engine = create_engine(
     TEST_DATABASE_URL, 
@@ -101,34 +114,21 @@ def test_duplicate_email_registration():
     assert response.status_code == 409
     assert "already exists" in response.json()["detail"]
 
-def test_chore_workflow():
-    # 1. Create a chore
-    payload = {"title": "Clean Room", "points_worth": 100}
-    res = client.post("/chores", json=payload)
-    assert res.status_code == 200
-    chore_id = res.json()["id"]
-
-    # 2. Complete it
-    comp_res = client.post(f"/chores/{chore_id}/complete")
-    assert comp_res.status_code == 200
-    
-    # 3. Approve it
-    appr_res = client.post(f"/chores/{chore_id}/approve")
-    assert appr_res.status_code == 200
-    assert "points awarded" in appr_res.json()["message"]
 
 def test_cannot_approve_before_complete():
-    """
-    Constraint: Cannot approve a chore if it hasn't been marked 'completed'.
-    """
+    """Constraint: Cannot approve a chore if it hasn't been marked 'completed'."""
+    token = register_and_login_as("parent")
+    headers = {"Authorization": f"Bearer {token}"}
+    
     payload = {"title": "Test Constraint", "points_worth": 50}
-    res = client.post("/chores", json=payload)
+    res = client.post("/chores", json=payload, headers=headers)
     chore_id = res.json()["id"]
 
-    appr_res = client.post(f"/chores/{chore_id}/approve")
+    appr_res = client.post(f"/chores/{chore_id}/approve", headers=headers)
     
     assert appr_res.status_code == 400
     assert "invalid chore state" in appr_res.json()["detail"].lower()
+
 
 def test_child_cannot_approve_own_chore():
     child_token = register_and_login_as("child") 
@@ -187,3 +187,24 @@ def test_invalid_token_rejected():
     )
     assert res.status_code == 401
 
+
+
+
+
+''' //using test_parent_chore_lifecycle instead
+def test_chore_workflow():
+    # 1. Create a chore
+    payload = {"title": "Clean Room", "points_worth": 100}
+    res = client.post("/chores", json=payload)
+    assert res.status_code == 200
+    chore_id = res.json()["id"]
+
+    # 2. Complete it
+    comp_res = client.post(f"/chores/{chore_id}/complete")
+    assert comp_res.status_code == 200
+    
+    # 3. Approve it
+    appr_res = client.post(f"/chores/{chore_id}/approve")
+    assert appr_res.status_code == 200
+    assert "points awarded" in appr_res.json()["message"]
+'''
