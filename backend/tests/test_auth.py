@@ -116,3 +116,74 @@ def test_chore_workflow():
     appr_res = client.post(f"/chores/{chore_id}/approve")
     assert appr_res.status_code == 200
     assert "points awarded" in appr_res.json()["message"]
+
+def test_cannot_approve_before_complete():
+    """
+    Constraint: Cannot approve a chore if it hasn't been marked 'completed'.
+    """
+    payload = {"title": "Test Constraint", "points_worth": 50}
+    res = client.post("/chores", json=payload)
+    chore_id = res.json()["id"]
+
+    appr_res = client.post(f"/chores/{chore_id}/approve")
+    
+    assert appr_res.status_code == 400
+    assert "not completed" in appr_res.json()["detail"].lower()
+
+def test_child_cannot_approve_own_chore(client):
+    child_token = register_and_login_as("child") 
+    
+    response = client.post(
+        "/chores/1/approve",
+        headers={"Authorization": f"Bearer {child_token}"}
+    )
+    
+    assert response.status_code == 403  # Forbidden
+    assert "Only parents can approve chores" in response.json()["detail"]
+
+
+def test_child_cannot_assign_chore(client):
+    """Ensure a child cannot call the assignment endpoint"""
+    child_token = register_and_login_as("child") 
+    
+    response = client.patch(
+        "/chores/1/assign/2", 
+        headers={"Authorization": f"Bearer {child_token}"}
+    )
+    
+    assert response.status_code == 403
+
+
+def test_parent_chore_lifecycle(client):
+    """
+    Tests the full Happy Path: Parent creates, assigns, and approves.
+    This is the core requirement of your project.
+    """
+    token = register_and_login_as("parent")
+    
+    res = client.post("/chores", json={"title": "Mow Lawn"}, headers={"Authorization": f"Bearer {token}"})
+    chore_id = res.json()["id"]
+    
+    client.patch(f"/chores/{chore_id}/assign/2", headers={"Authorization": f"Bearer {token}"})
+    
+    appr_res = client.post(f"/chores/{chore_id}/approve", headers={"Authorization": f"Bearer {token}"})
+
+    assert appr_res.status_code == 200
+
+def test_create_chore_requires_auth():
+    fresh_client = TestClient(app)
+
+    res = fresh_client.post("/chores", json={
+        "title": "Unauthorized",
+        "points_worth": 50
+    })
+
+    assert res.status_code == 401
+
+def test_invalid_token_rejected():
+    res = client.get(
+        "/auth/me",
+        headers={"Authorization": "Bearer garbage"}
+    )
+    assert res.status_code == 401
+
