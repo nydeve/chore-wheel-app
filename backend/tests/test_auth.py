@@ -9,8 +9,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from main import app
 from database import get_session
-from models import User
-
+from models import User, UserRole
+from utils import hash_password
 
 
 # Test DB setup ---------------------------
@@ -46,9 +46,10 @@ def client():
 
 @pytest.fixture
 def setup_users(session):
-    # Directly inject into the DB, skipping the API logic
-    parent = User(email="parent@test.com", password="securepassword123", role="parent", display_name="Parent")
-    child = User(email="child@test.com", password="securepassword123", role="child", display_name="Child")
+    pwd = hash_password("securepassword123")
+    
+    parent = User(email="parent@test.com", hashed_password=pwd, role=UserRole.PARENT, display_name="Parent")
+    child = User(email="child@test.com", hashed_password=pwd, role=UserRole.CHILD, display_name="Child")
     
     session.add(parent)
     session.add(child)
@@ -190,7 +191,7 @@ def test_child_cannot_assign_chore(client, setup_users):
 
     set_client_auth(client, "child")
 
-    response = client.patch(f"/chores/{chore_id}/assign/{child.id}")
+    response = client.patch(f"/chores/{chore_id}/assign/{child_id}")
     assert response.status_code == 403
 
 
