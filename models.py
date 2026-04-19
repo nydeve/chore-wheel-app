@@ -38,9 +38,11 @@ class Chore(SQLModel, table=True):
     
     user_id: Optional[int] = Field(default=None, foreign_key="user.id")
     assigned_user: Optional[User] = Relationship(back_populates="chores")
+    family_id: Optional[int] = Field(default=None, index=True)
 
 class Reward(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    family_id: Optional[int] = Field(default=None, index=True)
     name: str
     points_required: int
     icon: str = Field(default="🎁")

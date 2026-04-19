@@ -14,10 +14,11 @@ export async function fetchAPI(endpoint: string, options: RequestInit = {}) {
   // We specify credentials: "include" to ensure cookies are sent.
   headers.set("Content-Type", "application/json");
 
-  const config = {
+  const config: RequestInit = {
     ...options,
     headers,
     credentials: "include" as RequestCredentials,
+    cache: "no-store",
   };
 
   try {

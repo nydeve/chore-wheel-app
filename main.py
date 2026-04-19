@@ -9,9 +9,13 @@ from pydantic import BaseModel
 from database import engine, get_session, create_db_and_tables
 from models import User, Chore, Reward, ClaimedReward, PointTransaction, Notification
 from routes import router as auth_router
+from roles import get_current_user
 
 from slowapi.errors import RateLimitExceeded
 from rate_limit import limiter, rate_limit_handler
+
+def get_family_id(user: User) -> int:
+    return user.parent_id if user.parent_id else user.id
 
 app = FastAPI()
 
@@ -43,18 +47,22 @@ def read_root():
     return {"message": "API is running"}
 
 @app.get("/chores", tags=["Chores"], summary="Get all chores")
-def get_chores(session: Session = Depends(get_session)):
-    """Retrieves all chores from the database, regardless of assignment."""
-    statement = select(Chore)
+def get_chores(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+    """Retrieves all chores specifically within the active family tenant."""
+    fam_id = get_family_id(current_user)
+    statement = select(Chore).where(Chore.family_id == fam_id)
     results = session.exec(statement).all()
     return results
 
 @app.post("/chores", tags=["Chores"], summary="Create a new chore")
-def create_chore(chore: Chore, session: Session = Depends(get_session)):
+def create_chore(chore: Chore, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     """
     Creates a new chore. 
     Accepts an optional due_date and assignee user_id.
     """
+    fam_id = get_family_id(current_user)
+    chore.family_id = fam_id
+    
     if chore.due_date:
         if isinstance(chore.due_date, str):
             import datetime
@@ -71,12 +79,13 @@ def create_chore(chore: Chore, session: Session = Depends(get_session)):
     return chore
 
 @app.put("/chores/{chore_id}", tags=["Chores"], summary="Edit a chore")
-def update_chore(chore_id: int, chore_update: dict, session: Session = Depends(get_session)):
+def update_chore(chore_id: int, chore_update: dict, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     """
     Allows a Parent to dynamically edit a chore's properties, including title, points, and due date.
     """
     chore = session.get(Chore, chore_id)
-    if not chore:
+    fam_id = get_family_id(current_user)
+    if not chore or chore.family_id != fam_id:
         raise HTTPException(status_code=404, detail="Chore not found")
     
     if "title" in chore_update:
@@ -107,11 +116,12 @@ class SpinRequest(BaseModel):
     user_id: int
 
 @app.post("/chores/spin", tags=["Chores"], summary="Spin the Chore Wheel")
-def spin_wheel(req: SpinRequest, session: Session = Depends(get_session)):
+def spin_wheel(req: SpinRequest, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     """
     Randomly assigns one unassigned chore to the requesting child user.
     """
-    statement = select(Chore).where(Chore.user_id == None).where(Chore.status == "assigned")
+    fam_id = get_family_id(current_user)
+    statement = select(Chore).where(Chore.family_id == fam_id).where(Chore.user_id == None).where(Chore.status == "assigned")
     unassigned = session.exec(statement).all()
     if not unassigned:
         raise HTTPException(status_code=400, detail="No unassigned chores available on the wheel!")
@@ -127,10 +137,11 @@ class CompleteRequest(BaseModel):
     notes: Optional[str] = None
 
 @app.put("/chores/{chore_id}/complete", tags=["Chores"], summary="Mark chore as completed")
-def complete_chore(chore_id: int, req: CompleteRequest = None, session: Session = Depends(get_session)):
+def complete_chore(chore_id: int, req: CompleteRequest = None, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     """Sets a chore's status to 'pending_approval' so Parents can review it."""
     chore = session.get(Chore, chore_id)
-    if not chore:
+    fam_id = get_family_id(current_user)
+    if not chore or chore.family_id != fam_id:
         raise HTTPException(status_code=404, detail="Chore not found")
     
     chore.status = "pending_approval"
@@ -152,10 +163,11 @@ class RejectRequest(BaseModel):
     feedback: str
 
 @app.put("/chores/{chore_id}/reject", tags=["Chores"], summary="Reject a completed chore")
-def reject_chore(chore_id: int, req: RejectRequest, session: Session = Depends(get_session)):
+def reject_chore(chore_id: int, req: RejectRequest, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     """Rejects a chore, sending it back to 'assigned' status and notifying the child."""
     chore = session.get(Chore, chore_id)
-    if not chore or chore.status != "pending_approval":
+    fam_id = get_family_id(current_user)
+    if not chore or chore.family_id != fam_id or chore.status != "pending_approval":
         raise HTTPException(status_code=400, detail="Invalid chore state")
     
     chore.status = "assigned"
@@ -171,14 +183,15 @@ def reject_chore(chore_id: int, req: RejectRequest, session: Session = Depends(g
     return {"message": "Chore rejected"}
 
 @app.put("/chores/{chore_id}/approve", tags=["Chores"], summary="Approve completed chore")
-def approve_chore(chore_id: int, session: Session = Depends(get_session)):
+def approve_chore(chore_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     """
     Approves a completed chore.
     Awards the point value to the assigned child and creates a PointTransaction ledger log.
     If the chore is recurring, clones a new instance for the next interval.
     """
     chore = session.get(Chore, chore_id)
-    if not chore or chore.status != "pending_approval":
+    fam_id = get_family_id(current_user)
+    if not chore or chore.family_id != fam_id or chore.status != "pending_approval":
         raise HTTPException(status_code=400, detail="Invalid chore state")
 
     chore.status = "completed"
@@ -222,10 +235,11 @@ def approve_chore(chore_id: int, session: Session = Depends(get_session)):
     return {"message": "Chore approved and points awarded"}
 
 @app.delete("/chores/{chore_id}", tags=["Chores"], summary="Delete a chore")
-def delete_chore(chore_id: int, session: Session = Depends(get_session)):
+def delete_chore(chore_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     """Permanently deletes a chore from the database."""
     chore = session.get(Chore, chore_id)
-    if not chore:
+    fam_id = get_family_id(current_user)
+    if not chore or chore.family_id != fam_id:
         raise HTTPException(status_code=404, detail="Chore not found")
     
     session.delete(chore)
@@ -233,23 +247,26 @@ def delete_chore(chore_id: int, session: Session = Depends(get_session)):
     return {"message": "Chore deleted completely"}
 
 @app.get("/rewards", tags=["Rewards"], summary="Get all rewards")
-def get_rewards(session: Session = Depends(get_session)):
-    """Retrieves all available rewards in the store."""
-    return session.exec(select(Reward)).all()
+def get_rewards(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+    """Retrieves all available rewards bound to the active family tenant."""
+    fam_id = get_family_id(current_user)
+    return session.exec(select(Reward).where(Reward.family_id == fam_id)).all()
 
 @app.post("/rewards", tags=["Rewards"], summary="Create a reward")
-def create_reward(reward: Reward, session: Session = Depends(get_session)):
-    """Creates a new reward with an optional quantity limit."""
+def create_reward(reward: Reward, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+    """Creates a new reward isolated to the executing family."""
+    reward.family_id = get_family_id(current_user)
     session.add(reward)
     session.commit()
     session.refresh(reward)
     return reward
 
 @app.put("/rewards/{reward_id}", tags=["Rewards"], summary="Edit a reward")
-def update_reward(reward_id: int, r_update: dict, session: Session = Depends(get_session)):
+def update_reward(reward_id: int, r_update: dict, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     """Updates an existing reward's properties."""
     reward = session.get(Reward, reward_id)
-    if not reward: raise HTTPException(status_code=404)
+    fam_id = get_family_id(current_user)
+    if not reward or reward.family_id != fam_id: raise HTTPException(status_code=404)
     if "name" in r_update: reward.name = r_update["name"]
     if "points_required" in r_update: reward.points_required = r_update["points_required"]
     if "icon" in r_update: reward.icon = r_update["icon"]
@@ -259,10 +276,11 @@ def update_reward(reward_id: int, r_update: dict, session: Session = Depends(get
     return reward
 
 @app.delete("/rewards/{reward_id}", tags=["Rewards"], summary="Delete a reward")
-def delete_reward(reward_id: int, session: Session = Depends(get_session)):
+def delete_reward(reward_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     """Deletes a reward from the store."""
     reward = session.get(Reward, reward_id)
-    if reward:
+    fam_id = get_family_id(current_user)
+    if reward and reward.family_id == fam_id:
         session.delete(reward)
         session.commit()
     return {"message": "Deleted"}
@@ -303,14 +321,18 @@ def redeem_reward(user_id: int, reward_id: int, session: Session = Depends(get_s
     return {"message": "Reward claimed successfully!"}
 
 @app.get("/rewards/pending", tags=["Rewards"], summary="Get pending claims")
-def get_pending_rewards(session: Session = Depends(get_session)):
+def get_pending_rewards(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     """Retrieves all purchased rewards that have not yet been physically delivered by the parent."""
+    fam_id = get_family_id(current_user)
     statement = select(ClaimedReward).where(ClaimedReward.status == "pending")
     claimed = session.exec(statement).all()
     
     results = []
     for c in claimed:
         user = session.get(User, c.user_id)
+        if not user or (user.parent_id != fam_id and user.id != fam_id):
+            continue
+            
         reward = session.get(Reward, c.reward_id)
         if user and reward:
             results.append({
