@@ -11,6 +11,13 @@ from main import app
 from database import get_session
 from models import User, UserRole, Chore
 
+@pytest.fixture(name="session")
+def session_fixture():
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        yield session
+    SQLModel.metadata.drop_all(engine)
+
 @pytest.fixture(autouse=True)
 def setup_database(session):
     parent = User(email="parent@test.com", password="securepassword123", role="parent", display_name="Parent")
