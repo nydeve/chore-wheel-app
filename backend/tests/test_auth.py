@@ -2,7 +2,7 @@ import sys
 import os
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.pool import StaticPool
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -11,19 +11,19 @@ from main import app
 from database import get_session
 from models import User, UserRole, Chore
 
+@pytest.fixture(autouse=True)
+def setup_database(session):
+    parent = User(email="parent@test.com", password="securepassword123", role="parent", display_name="Parent")
+    child = User(email="child@test.com", password="securepassword123", role="child", display_name="Child")
+    
+    session.add(parent)
+    session.add(child)
+    session.commit()
+
 
 def set_client_auth(client, role):
-    """
-    Registers a user, logs them in, and sets the auth cookie 
-    on the provided client instance.
-    """
-    user_data = {
-        "email": f"{role}@test.com",
-        "password": "securepassword123",
-        "display_name": role.capitalize()
-    }
-    client.post("/auth/register", json=user_data)
-    login_res = client.post("/auth/login", json={"email": user_data["email"], "password": "securepassword123"})
+    email = f"{role}@test.com"
+    login_res = client.post("/auth/login", json={"email": email, "password": "securepassword123"})
     
     token = login_res.cookies.get("access_token")
     client.cookies.set("access_token", token)
@@ -146,15 +146,16 @@ def test_child_cannot_approve_own_chore():
     assert response.status_code == 403
 
 
-def test_child_cannot_assign_chore():
+def test_child_cannot_assign_chore(session):
     set_client_auth(client, "parent")
 
     res = client.post("/chores", json={"title": "Test", "points_worth": 10})
     chore_id = res.json()["id"]
 
+    child_user = session.exec(select(User).where(User.email == "child@test.com")).first()
     set_client_auth(client, "child")
     
-    response = client.patch(f"/chores/{chore_id}/assign/999")
+    response = client.patch(f"/chores/{chore_id}/assign/{child_user.id}")
     assert response.status_code == 403
 
 
@@ -162,19 +163,16 @@ def test_parent_chore_lifecycle():
     set_client_auth(client, "parent")
     
     res = client.post("/chores", json={"title": "Mow Lawn", "points_worth": 15})
-
-    if res.status_code != 200:
-        print(f"\n--- DEBUG ERROR: Status {res.status_code} ---")
-        print(f"Response Body: {res.json()}")
-        assert res.status_code == 200
-
+    
+   
+    assert res.status_code == 200, f"Expected 200, got {res.status_code}: {res.json()}"
     chore_id = res.json()["id"]
     
-    client.patch(f"/chores/{chore_id}/assign/1")
+    client.patch(f"/chores/{chore_id}/assign/1") 
     client.put(f"/chores/{chore_id}/complete")
     appr_res = client.put(f"/chores/{chore_id}/approve")
 
-    assert res.status_code == 200
+    assert appr_res.status_code == 200
     
 
 def test_create_chore_requires_auth():
