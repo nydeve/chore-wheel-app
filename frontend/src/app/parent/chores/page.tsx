@@ -5,18 +5,22 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Pencil, Trash2, CheckCircle } from "lucide-react";
+import { PlusCircle, Pencil, Trash2, CheckCircle, XCircle } from "lucide-react";
 
 export default function ParentChoresPage() {
   const [chores, setChores] = useState<any[]>([]);
   const [children, setChildren] = useState<any[]>([]);
   
   const [openDialog, setOpenDialog] = useState(false);
+  const [editingChoreId, setEditingChoreId] = useState<number | null>(null);
+  
   const [newTitle, setNewTitle] = useState("");
   const [newPoints, setNewPoints] = useState(10);
   const [newAssignee, setNewAssignee] = useState("");
+  const [newDueDate, setNewDueDate] = useState("");
+  const [newRecurrence, setNewRecurrence] = useState("none");
 
   const [loading, setLoading] = useState(true);
 
@@ -40,20 +44,49 @@ export default function ParentChoresPage() {
     }
   };
 
-  const handleAddChore = async () => {
+  const handleOpenCreate = () => {
+    setEditingChoreId(null);
+    setNewTitle("");
+    setNewPoints(10);
+    setNewAssignee("unassigned");
+    setNewDueDate("");
+    setNewRecurrence("none");
+    setOpenDialog(true);
+  };
+
+  const handleOpenEdit = (chore: any) => {
+    setEditingChoreId(chore.id);
+    setNewTitle(chore.title);
+    setNewPoints(chore.points_worth);
+    setNewAssignee(chore.user_id ? String(chore.user_id) : "unassigned");
+    setNewDueDate(chore.due_date ? chore.due_date.split("T")[0] : "");
+    setNewRecurrence(chore.recurrence || "none");
+    setOpenDialog(true);
+  };
+
+  const handleSaveChore = async () => {
     try {
-      await api.chores.create({
+      const payload: any = {
         title: newTitle,
         points_worth: newPoints,
         user_id: newAssignee && newAssignee !== "unassigned" ? parseInt(newAssignee) : null,
-      });
+        recurrence: newRecurrence,
+      };
+      
+      if (newDueDate) {
+         payload.due_date = newDueDate;
+      }
+      
+      if (editingChoreId) {
+        await api.chores.update(editingChoreId, payload);
+      } else {
+        await api.chores.create(payload);
+      }
+      
       setOpenDialog(false);
-      setNewTitle("");
-      setNewPoints(10);
-      setNewAssignee("");
       loadData();
     } catch (e: any) {
-      alert("Failed to create chore: " + e.message);
+      alert("Failed to save chore: " + e.message);
     }
   };
 
@@ -76,6 +109,16 @@ export default function ParentChoresPage() {
     }
   };
 
+  const handleRejectChore = async (id: number) => {
+    if (!confirm("Are you sure you want to reject this and send it back to the child?")) return;
+    try {
+      await api.chores.reject(id);
+      loadData();
+    } catch(e: any) {
+      alert("Rejection failed: " + e.message);
+    }
+  };
+
   const getAssigneeName = (userId: number | null) => {
     if (!userId) return "Unassigned";
     const child = children.find(c => c.id === userId);
@@ -92,13 +135,13 @@ export default function ParentChoresPage() {
           <p className="text-gray-500">Create, edit, and assign chores to your children.</p>
         </div>
         
-        <Button onClick={() => setOpenDialog(true)}><PlusCircle className="mr-2 h-4 w-4" /> Add Chore</Button>
+        <Button onClick={handleOpenCreate}><PlusCircle className="mr-2 h-4 w-4" /> Add Chore</Button>
         <Dialog open={openDialog} onOpenChange={setOpenDialog}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Add New Chore</DialogTitle>
+              <DialogTitle>{editingChoreId ? "Edit Chore" : "Add New Chore"}</DialogTitle>
               <DialogDescription>
-                Create a new chore. Click save when you&apos;re done.
+                {editingChoreId ? "Update chore details below." : "Create a new chore. Click save when you're done."}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -111,11 +154,32 @@ export default function ParentChoresPage() {
                 <Input id="points" type="number" value={newPoints} onChange={e => setNewPoints(Number(e.target.value))} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="duedate" className="text-right">Due Date (Opt)</Label>
+                <Input id="duedate" type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="recurrence" className="text-right">Repeating?</Label>
+                <select 
+                  id="recurrence" 
+                  value={newRecurrence}
+                  disabled={newAssignee === "unassigned"}
+                  onChange={e => setNewAssignee === "unassigned" ? setNewRecurrence("none") : setNewRecurrence(e.target.value)}
+                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm col-span-3 disabled:opacity-50 disabled:bg-gray-100"
+                >
+                  <option value="none">{newAssignee === "unassigned" ? "Does not repeat (Unassigned Only)" : "Does not repeat"}</option>
+                  {newAssignee !== "unassigned" && <option value="daily">Daily</option>}
+                  {newAssignee !== "unassigned" && <option value="weekly">Weekly</option>}
+                </select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="assignee" className="text-right">Assignee</Label>
                 <select 
                   id="assignee" 
                   value={newAssignee}
-                  onChange={e => setNewAssignee(e.target.value)}
+                  onChange={e => {
+                    setNewAssignee(e.target.value);
+                    if (e.target.value === "unassigned") setNewRecurrence("none");
+                  }}
                   className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm col-span-3"
                 >
                   <option value="unassigned">Unassigned (Chore Wheel)</option>
@@ -126,7 +190,7 @@ export default function ParentChoresPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleAddChore} disabled={!newTitle}>Save Chore</Button>
+              <Button onClick={handleSaveChore} disabled={!newTitle}>Save Chore</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -140,6 +204,7 @@ export default function ParentChoresPage() {
                 <th className="px-6 py-3 font-semibold">Chore Title</th>
                 <th className="px-6 py-3 font-semibold">Points</th>
                 <th className="px-6 py-3 font-semibold">Assignee</th>
+                <th className="px-6 py-3 font-semibold">Due Date</th>
                 <th className="px-6 py-3 font-semibold">Status</th>
                 <th className="px-6 py-3 font-semibold text-right">Actions</th>
               </tr>
@@ -147,7 +212,14 @@ export default function ParentChoresPage() {
             <tbody className="divide-y border-t-0">
               {chores.map((chore) => (
                 <tr key={chore.id} className="hover:bg-gray-50 bg-white transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900 line-clamp-1">{chore.title}</td>
+                  <td className="px-6 py-4 font-medium text-gray-900">
+                    <span className="line-clamp-1">{chore.title} {chore.recurrence && chore.recurrence !== 'none' && <span title={`Recurs ${chore.recurrence}`}>🔁</span>}</span>
+                    {chore.submission_notes && (
+                      <div className="mt-1 text-xs text-gray-500 bg-gray-100 p-1.5 rounded italic border-l-2 border-gray-300 line-clamp-2">
+                        "{chore.submission_notes}"
+                      </div>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     <Badge variant="outline" className="font-mono bg-blue-50 text-blue-700 border-blue-200">
                       {chore.points_worth}
@@ -159,6 +231,9 @@ export default function ParentChoresPage() {
                     ) : (
                       getAssigneeName(chore.user_id)
                     )}
+                  </td>
+                  <td className="px-6 py-4 text-gray-500 text-xs">
+                     {chore.due_date ? new Date(chore.due_date).toLocaleDateString() : "No Date"}
                   </td>
                   <td className="px-6 py-4">
                     <Badge 
@@ -175,11 +250,20 @@ export default function ParentChoresPage() {
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2 items-center">
                       {chore.status === "pending_approval" && (
-                        <Button variant="outline" onClick={() => handleApproveChore(chore.id)} size="sm" className="h-8 text-green-600 border-green-200 hover:bg-green-50 mr-2">
-                          <CheckCircle className="h-4 w-4 mr-1" /> Approve
-                        </Button>
+                        <>
+                          <Button variant="outline" onClick={() => handleApproveChore(chore.id)} size="sm" className="h-8 text-green-600 border-green-200 hover:bg-green-50 mr-1">
+                            <CheckCircle className="h-4 w-4 mr-1" /> Approve
+                          </Button>
+                          <Button variant="outline" onClick={() => handleRejectChore(chore.id)} size="icon" className="h-8 w-8 text-red-600 border-red-200 hover:bg-red-50 mr-2" title="Reject Chore">
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        </>
                       )}
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"><Pencil className="h-4 w-4" /></Button>
+                      
+                      {chore.status !== "completed" && chore.status !== "pending_approval" && (
+                         <Button onClick={() => handleOpenEdit(chore)} variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"><Pencil className="h-4 w-4" /></Button>
+                      )}
+                      
                       <Button variant="ghost" onClick={() => handleDeleteChore(chore.id)} size="icon" className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </td>

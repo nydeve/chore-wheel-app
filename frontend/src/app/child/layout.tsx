@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
+import Notifications from "@/components/Notifications";
 
 export default function ChildLayout({
   children,
@@ -25,6 +26,16 @@ export default function ChildLayout({
       }
     };
     fetchUser();
+    
+    // Listen for cross-page optimistic point updates
+    const handlePointsUpdate = (e: any) => {
+      setUser((prev: any) => prev ? { ...prev, total_points: e.detail.points } : prev);
+    };
+    window.addEventListener("user-points-updated", handlePointsUpdate);
+    
+    return () => {
+      window.removeEventListener("user-points-updated", handlePointsUpdate);
+    };
   }, []);
 
   const handleLogout = async () => {
@@ -52,6 +63,7 @@ export default function ChildLayout({
             </nav>
           </div>
           <div className="flex items-center space-x-4">
+            <Notifications />
             {user && (
               <div className="bg-blue-100 text-blue-800 font-bold px-3 py-1 rounded-full text-sm flex gap-1 items-center">
                  🌟 {user.total_points} pts

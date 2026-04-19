@@ -51,22 +51,35 @@ export const api = {
     me: () => fetchAPI("/auth/me"),
     updateProfile: (data: any) => fetchAPI("/auth/me", { method: "PUT", body: JSON.stringify(data) }),
     registerChild: (data: any) => fetchAPI("/auth/register/child", { method: "POST", body: JSON.stringify(data) }),
+    forgotPassword: (data: any) => fetchAPI("/auth/forgot-password", { method: "POST", body: JSON.stringify(data) }),
+    resetPassword: (data: any) => fetchAPI("/auth/reset-password", { method: "POST", body: JSON.stringify(data) }),
   },
   chores: {
     getAll: () => fetchAPI("/chores"),
     create: (data: any) => fetchAPI("/chores", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: any) => fetchAPI(`/chores/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-    complete: (id: number) => fetchAPI(`/chores/${id}/complete`, { method: "PUT" }),
+    complete: (id: number, notes?: string) => fetchAPI(`/chores/${id}/complete`, { method: "PUT", body: JSON.stringify({ notes }) }),
     approve: (id: number) => fetchAPI(`/chores/${id}/approve`, { method: "PUT" }),
+    reject: (id: number) => fetchAPI(`/chores/${id}/reject`, { method: "PUT" }),
     delete: (id: number) => fetchAPI(`/chores/${id}`, { method: "DELETE" }),
+    spin: (userId: number) => fetchAPI("/chores/spin", { method: "POST", body: JSON.stringify({ user_id: userId }) }),
   },
   rewards: {
     getAll: () => fetchAPI("/rewards"),
-    redeem: (userId: number, id: number) => fetchAPI(`/users/${userId}/redeem/${id}`, { method: "PUT" }),
+    create: (data: any) => fetchAPI("/rewards", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: any) => fetchAPI(`/rewards/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    delete: (id: number) => fetchAPI(`/rewards/${id}`, { method: "DELETE" }),
+    redeem: (userId: number, id: number) => fetchAPI(`/users/${userId}/redeem/${id}`, { method: "POST" }),
+    getPending: () => fetchAPI("/rewards/pending"),
+    fulfill: (id: number) => fetchAPI(`/rewards/claimed/${id}/fulfill`, { method: "PUT" }),
   },
   users: {
     getAll: () => fetchAPI("/users"),
     getOptions: () => fetchAPI("/users"),
     invite: () => fetchAPI("/users/invite", { method: "POST" }),
+  },
+  notifications: {
+    getAll: (userId: number) => fetchAPI(`/notifications?user_id=${userId}`),
+    markRead: (id: number) => fetchAPI(`/notifications/${id}/read`, { method: "PUT" }),
   }
 };

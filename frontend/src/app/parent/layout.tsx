@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { api } from "@/lib/api";
+import Notifications from "@/components/Notifications";
 
 export default function ParentLayout({
   children,
@@ -37,6 +38,7 @@ export default function ParentLayout({
             </nav>
           </div>
           <div className="flex items-center space-x-4">
+            <Notifications />
             <button onClick={handleLogout} className="text-sm font-bold text-gray-500 hover:text-gray-900 transition-colors">Log out</button>
             <Link href="/parent/profile">
               <Avatar className="cursor-pointer border-2 hover:border-primary transition-all">

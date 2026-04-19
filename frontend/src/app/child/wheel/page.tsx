@@ -1,32 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function ChildWheelPage() {
+  const [user, setUser] = useState<any>(null);
   const [spinning, setSpinning] = useState(false);
-  const [result, setResult] = useState<{title: string, points: number} | null>(null);
+  const [result, setResult] = useState<any>(null);
 
-  const chores = [
-    { title: "Clean the Windows", points: 30 },
-    { title: "Fold Laundry", points: 20 },
-    { title: "Water Plants", points: 15 },
-    { title: "Take out Trash", points: 10 },
-    { title: "Sweep Floor", points: 20 },
-    { title: "Free Pass! 🌟", points: 0 }
-  ];
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const u = await api.auth.me();
+        setUser(u);
+      } catch (e) {
+        console.error("Not logged in");
+      }
+    };
+    fetchUser();
+  },[]);
 
-  const handleSpin = () => {
+  const handleSpin = async () => {
+    if (!user) return;
     setSpinning(true);
     setResult(null);
     
-    // Simulate spin duration and random result
-    setTimeout(() => {
-      let randomChore = chores[Math.floor(Math.random() * chores.length)];
-      setResult(randomChore);
+    try {
+      // Hit backend API to securely pick a random unassigned chore and assign it to the user.
+      const spunChore = await api.chores.spin(user.id);
+      
+      // Simulate spin duration animation
+      setTimeout(() => {
+        setResult(spunChore);
+        setSpinning(false);
+      }, 3000);
+      
+    } catch (e: any) {
       setSpinning(false);
-    }, 3000);
+      alert(e.message || "No chores available to spin for!");
+    }
   };
 
   return (
@@ -68,9 +82,9 @@ export default function ChildWheelPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-6 flex justify-center">
-            {result?.points && result.points > 0 ? (
+            {result?.points_worth && result.points_worth > 0 ? (
                <div className="bg-blue-100 text-blue-800 px-6 py-3 rounded-full text-2xl font-black shadow-inner">
-                 +{result.points} Points possible!
+                 +{result.points_worth} Points possible!
                </div>
             ) : (
                <div className="bg-yellow-100 text-yellow-700 px-6 py-3 rounded-full text-2xl font-black shadow-inner flex items-center gap-2">
@@ -78,11 +92,12 @@ export default function ChildWheelPage() {
                </div>
             )}
           </div>
-          <DialogFooter className="sm:justify-center">
-            <Button type="button" size="lg" className="w-full font-bold text-lg" onClick={() => setResult(null)}>
-              Accept Challenge
+          <div className="flex flex-col items-center gap-3 w-full mt-4">
+            <Button type="button" size="lg" className="w-full font-bold text-lg bg-green-500 hover:bg-green-600 text-white" onClick={() => setResult(null)}>
+              Awesome!
             </Button>
-          </DialogFooter>
+            <p className="text-xs text-gray-400 text-center">This chore has been instantly added to your dashboard.</p>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -7,16 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { PlusCircle, CheckCircle } from "lucide-react";
+import { PlusCircle, CheckCircle, XCircle } from "lucide-react";
 
 export default function ParentDashboardPage() {
   const [childrenData, setChildrenData] = useState<any[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
+  const [pendingRewards, setPendingRewards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const pendingRewards = [
-    { id: 1, child: "Fallback Data (Rewards Not Built Yet)", reward: "Extra Video Games", cost: 50, time: "Just now" }
-  ];
 
   useEffect(() => {
     loadData();
@@ -25,15 +22,17 @@ export default function ParentDashboardPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [kidsRes, choresRes] = await Promise.all([
+      const [kidsRes, choresRes, rewardsRes] = await Promise.all([
         api.users.getAll(),
-        api.chores.getAll()
+        api.chores.getAll(),
+        api.rewards.getPending()
       ]);
       
       setChildrenData(kidsRes || []);
       
       const pending = (choresRes || []).filter((c: any) => c.status === "pending_approval");
       setPendingApprovals(pending);
+      setPendingRewards(rewardsRes || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -47,6 +46,25 @@ export default function ParentDashboardPage() {
       loadData();
     } catch(e: any) {
       alert("Approval failed: " + e.message);
+    }
+  };
+
+  const handleRejectChore = async (id: number) => {
+    if (!confirm("Are you sure you want to reject this and send it back to the child?")) return;
+    try {
+      await api.chores.reject(id);
+      loadData();
+    } catch(e: any) {
+      alert("Rejection failed: " + e.message);
+    }
+  };
+
+  const handleFulfillReward = async (id: number) => {
+    try {
+      await api.rewards.fulfill(id);
+      loadData();
+    } catch(e: any) {
+      alert("Fulfill failed: " + e.message);
     }
   };
 
@@ -122,6 +140,11 @@ export default function ParentDashboardPage() {
                     <span className="font-semibold text-gray-800 text-sm">{approval.title}</span>
                     <Badge variant="outline" className="text-xs bg-blue-50 text-blue-800 border-blue-200">+{approval.points_worth} pts</Badge>
                   </div>
+                  {approval.submission_notes && (
+                    <div className="text-[11px] text-gray-500 bg-white p-1.5 rounded italic border-l-2 border-gray-300">
+                      "{approval.submission_notes}"
+                    </div>
+                  )}
                   <div className="flex items-center space-x-2">
                     <Avatar className="h-4 w-4">
                       <AvatarFallback className="text-[8px] bg-blue-100 text-blue-700">
@@ -134,6 +157,9 @@ export default function ParentDashboardPage() {
                      <Button onClick={() => handleApproveChore(approval.id)} size="sm" className="flex-1 bg-green-600 hover:bg-green-700 border-none text-white h-7 text-xs font-bold">
                        <CheckCircle className="w-3 h-3 mr-1" /> Approve
                      </Button>
+                     <Button onClick={() => handleRejectChore(approval.id)} size="sm" className="bg-red-100 hover:bg-red-200 text-red-700 border-none h-7 text-xs font-bold px-3">
+                       <XCircle className="w-3 h-3" />
+                     </Button>
                   </div>
                 </div>
               ))
@@ -142,31 +168,45 @@ export default function ParentDashboardPage() {
         </Card>
 
         {/* Pending Rewards Queue */}
-        <Card className="col-span-1 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200 fill-mode-both">
+        <Card className="col-span-1 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200 fill-mode-both border-t-4 border-t-purple-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div className="space-y-1">
-              <CardTitle className="text-gray-400">Pending Rewards</CardTitle>
-              <CardDescription>Feature Coming Soon</CardDescription>
+              <CardTitle>Pending Rewards</CardTitle>
+              <CardDescription>Claimed prizes</CardDescription>
             </div>
             {pendingRewards.length > 0 && (
-              <Badge variant="destructive" className="bg-yellow-500 hover:bg-yellow-600 rounded-full px-2 py-0.5 border-none opacity-50">{pendingRewards.length}</Badge>
+              <Badge variant="destructive" className="bg-purple-500 rounded-full px-2 py-0.5 border-none">{pendingRewards.length}</Badge>
             )}
           </CardHeader>
-          <CardContent className="space-y-3 opacity-50 select-none grayscale">
-            {pendingRewards.map((reward, i) => (
-                <div key={i} className="flex flex-col p-3 rounded-lg bg-yellow-50/50 border border-yellow-100 gap-2">
-                  <div className="flex justify-between items-start">
-                    <span className="font-semibold text-gray-800 text-sm">{reward.reward}</span>
-                    <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-200">{reward.cost} pts</Badge>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs font-medium text-gray-600">{reward.child}</span>
-                  </div>
-                  <div className="mt-2">
-                     <Button size="sm" variant="outline" className="w-full text-xs" disabled>Backend Not Built Yet</Button>
-                  </div>
-                </div>
-            ))}
+          <CardContent className="space-y-3">
+            {pendingRewards.length === 0 ? (
+               <p className="text-sm text-gray-500 italic p-4 text-center border rounded-lg bg-purple-50">No pending rewards right now.</p>
+            ) : (
+                pendingRewards.map((reward, i) => (
+                    <div key={i} className="flex flex-col p-3 rounded-lg bg-purple-50 border border-purple-100 gap-2">
+                      <div className="flex justify-between items-start">
+                        <span className="font-semibold text-gray-800 text-sm">{reward.reward}</span>
+                        <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-200">{reward.cost} pts</Badge>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Avatar className="h-4 w-4">
+                          <AvatarFallback className="text-[8px] bg-purple-100 text-purple-700">
+                            {reward.child.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-xs font-medium text-gray-600">{reward.child}</span>
+                      </div>
+                      <div className="mt-2 text-xs text-gray-400">
+                        Purchased recently
+                      </div>
+                      <div className="mt-2">
+                         <Button onClick={() => handleFulfillReward(reward.id)} size="sm" className="w-full text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white border-none h-7">
+                            <CheckCircle className="w-3 h-3 mr-1" /> Mark Fulfilled
+                         </Button>
+                      </div>
+                    </div>
+                ))
+            )}
           </CardContent>
         </Card>
       </div>

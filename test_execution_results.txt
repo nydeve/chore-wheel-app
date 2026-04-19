@@ -1,0 +1,23 @@
+Automated Test Cases:
+1. TC003 / CWR.1.3: Verify passwords are stored in hashed format.
+2. TC004 / CWR.1.4: Verify JWT token is issued for active sessions.
+3. TC001 / CWR.1.1: Verify the system allows users to register using a valid email and secure password.
+
+To view the automation script, open the file `test_auth_unit.py` in your text editor.
+To run the automated tests locally, you can use the command:
+`python3 -m pytest test_auth_unit.py -v`
+
+--- Test Completion Output (Use this for your screen capture) ---
+
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-8.4.2, pluggy-1.6.0 -- /Library/Developer/CommandLineTools/usr/bin/python3
+cachedir: .pytest_cache
+rootdir: /Users/dgurin/Desktop/misc/chore-project
+plugins: anyio-4.12.1
+collecting ... collected 3 items                                                              
+
+test_auth_unit.py::test_password_hashing PASSED                          [ 33%]
+test_auth_unit.py::test_jwt_token_generation PASSED                      [ 66%]
+test_auth_unit.py::test_user_registration_success PASSED                 [100%]
+
+============================== 3 passed in 1.00s ===============================

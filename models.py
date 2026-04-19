@@ -21,6 +21,9 @@ class User(SQLModel, table=True):
     
     total_points: int = Field(default=0)
     
+    reset_token: Optional[str] = Field(default=None, index=True)
+    reset_token_expires: Optional[datetime] = Field(default=None)
+    
     chores: List["Chore"] = Relationship(back_populates="assigned_user")
 
 class Chore(SQLModel, table=True):
@@ -29,6 +32,9 @@ class Chore(SQLModel, table=True):
     description: Optional[str] = None
     points_worth: int = Field(default=10)
     status: str = Field(default="assigned")
+    submission_notes: Optional[str] = Field(default=None)
+    due_date: Optional[datetime] = None
+    recurrence: str = Field(default="none") # "none", "daily", "weekly"
     
     user_id: Optional[int] = Field(default=None, foreign_key="user.id")
     assigned_user: Optional[User] = Relationship(back_populates="chores")
@@ -37,6 +43,30 @@ class Reward(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     points_required: int
+    icon: str = Field(default="🎁")
+    quantity: Optional[int] = Field(default=None)
+
+class ClaimedReward(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    reward_id: int = Field(foreign_key="reward.id")
+    user_id: int = Field(foreign_key="user.id")
+    status: str = Field(default="pending") # "pending", "fulfilled"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PointTransaction(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id")
+    amount: int
+    reason: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class Notification(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    title: str
+    message: str
+    is_read: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 

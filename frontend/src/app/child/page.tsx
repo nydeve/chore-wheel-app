@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, CircleDashed } from "lucide-react";
 import Link from "next/link";
@@ -13,10 +14,11 @@ export default function ChildDashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [chores, setChores] = useState<any[]>([]);
+  const [targetReward, setTargetReward] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
-  // Fallback target for the progress bar if store isn't built yet
-  const targetReward = { name: "Extra Video Games", cost: 200 };
+  
+  const [submittingChore, setSubmittingChore] = useState<any>(null);
+  const [submissionNotes, setSubmissionNotes] = useState("");
 
   useEffect(() => {
     loadData();
@@ -34,9 +36,38 @@ export default function ChildDashboardPage() {
       
       setUser(userData);
 
-      const allChores = await api.chores.getAll();
-      const myChores = allChores.filter((c: any) => c.user_id === userData.id);
+      const [allChores, allRewards] = await Promise.all([
+        api.chores.getAll(),
+        api.rewards.getAll()
+      ]);
+      
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+      
+      const myChores = allChores.filter((c: any) => {
+        if (c.user_id !== userData.id) return false;
+        if (c.due_date) {
+           const dueDate = new Date(c.due_date);
+           return dueDate <= todayEnd;
+        }
+        return true;
+      });
       setChores(myChores);
+
+      if (allRewards && allRewards.length > 0) {
+        // Try to find the next reward they are trying to reach
+        const unattainable = allRewards.filter((r: any) => r.points_required > userData.total_points);
+        if (unattainable.length > 0) {
+           // Sort by closest cost
+           unattainable.sort((a: any, b: any) => a.points_required - b.points_required);
+           setTargetReward(unattainable[0]);
+        } else {
+           // Provide the highest tier reward if they can afford everything
+           const highest = [...allRewards].sort((a: any, b: any) => b.points_required - a.points_required)[0];
+           setTargetReward(highest);
+        }
+      }
+
     } catch (e: any) {
       console.error(e);
       if (e.message?.includes("Not logged in")) {
@@ -47,9 +78,16 @@ export default function ChildDashboardPage() {
     }
   };
 
-  const handleCompleteChore = async (choreId: number) => {
+  const openSubmitDialog = (chore: any) => {
+    setSubmittingChore(chore);
+    setSubmissionNotes("");
+  };
+
+  const handleCompleteChore = async () => {
+    if (!submittingChore) return;
     try {
-      await api.chores.complete(choreId);
+      await api.chores.complete(submittingChore.id, submissionNotes);
+      setSubmittingChore(null);
       loadData();
     } catch(e: any) {
       alert("Failed to mark done: " + e.message);
@@ -61,7 +99,10 @@ export default function ChildDashboardPage() {
   }
 
   const currentPoints = user.total_points;
-  const progressPercent = Math.min(100, Math.max(0, Math.round((currentPoints / targetReward.cost) * 100)));
+  let progressPercent = 0;
+  if (targetReward) {
+     progressPercent = Math.min(100, Math.max(0, Math.round((currentPoints / targetReward.points_required) * 100)));
+  }
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
@@ -82,19 +123,25 @@ export default function ChildDashboardPage() {
               <span className="text-xl font-medium opacity-80">pts</span>
             </div>
             
-            <div className="bg-white/20 p-4 rounded-xl space-y-3">
-              <div className="flex justify-between text-sm font-bold">
-                <span>Goal: {targetReward.name}</span>
-                <span>{targetReward.cost} pts</span>
+            {targetReward ? (
+              <div className="bg-white/20 p-4 rounded-xl space-y-3">
+                <div className="flex justify-between text-sm font-bold">
+                  <span>Goal: {targetReward.name}</span>
+                  <span>{targetReward.points_required} pts</span>
+                </div>
+                <div className="h-3 w-full bg-black/10 rounded-full overflow-hidden relative shadow-inner">
+                  <div 
+                    className="absolute top-0 left-0 h-full bg-white transition-all duration-1000 ease-out rounded-full" 
+                    style={{ width: `${Math.max(5, progressPercent)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-right font-medium opacity-90">{progressPercent}% there!</p>
               </div>
-              <div className="h-3 w-full bg-black/10 rounded-full overflow-hidden relative shadow-inner">
-                <div 
-                  className="absolute top-0 left-0 h-full bg-white transition-all duration-1000 ease-out rounded-full" 
-                  style={{ width: `${Math.max(5, progressPercent)}%` }}
-                />
+            ) : (
+              <div className="bg-white/20 p-4 rounded-xl text-sm font-bold text-center">
+                 No rewards in the store yet! Ask your parent to add some.
               </div>
-              <p className="text-xs text-right font-medium opacity-90">{progressPercent}% there!</p>
-            </div>
+            )}
 
             <div className="flex gap-3">
                <Link href="/child/store" className="w-full">
@@ -135,7 +182,7 @@ export default function ChildDashboardPage() {
                       </div>
                     </div>
                     {chore.status === "assigned" && (
-                      <Button size="sm" onClick={() => handleCompleteChore(chore.id)} variant="outline" className="font-bold border-2 border-green-200 text-green-700 hover:bg-green-50">Mark Done</Button>
+                      <Button size="sm" onClick={() => openSubmitDialog(chore)} variant="outline" className="font-bold border-2 border-green-200 text-green-700 hover:bg-green-50">Mark Done</Button>
                     )}
                     {chore.status === "pending_approval" && (
                       <span className="text-xs font-bold text-yellow-600 bg-yellow-100 px-2 py-1 rounded">Waiting for Review</span>
@@ -147,6 +194,29 @@ export default function ChildDashboardPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={!!submittingChore} onOpenChange={(open) => !open && setSubmittingChore(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Complete Chore</DialogTitle>
+            <DialogDescription>
+              Way to go! Add any details or proof for your parents before turning in '{submittingChore?.title}'.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+             <textarea 
+                placeholder="Optional notes... (e.g., I put the clothes in the blue hamper!)" 
+                value={submissionNotes}
+                onChange={(e) => setSubmissionNotes(e.target.value)}
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm resize-none h-24"
+             />
+          </div>
+          <DialogFooter className="sm:justify-end">
+            <Button type="button" variant="ghost" onClick={() => setSubmittingChore(null)}>Cancel</Button>
+            <Button type="button" onClick={handleCompleteChore} className="bg-green-500 hover:bg-green-600 font-bold">Submit for Review</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

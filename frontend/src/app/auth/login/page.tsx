@@ -106,11 +106,11 @@ export default function LoginPage() {
 
            <form onSubmit={handleLogin} className="space-y-6">
              <div className="space-y-3">
-               <Label htmlFor="email" className="text-gray-700 font-bold text-base">Email Address</Label>
+               <Label htmlFor="email" className="text-gray-700 font-bold text-base">Email or Child Login Name</Label>
                <Input
                  id="email"
-                 type="email"
-                 placeholder="parent@example.com"
+                 type="text"
+                 placeholder="parent@example.com or kid123"
                  required
                  className="h-14 px-4 text-lg bg-white border-gray-200 shadow-sm focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all rounded-xl"
                  value={email}

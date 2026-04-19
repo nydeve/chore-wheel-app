@@ -5,7 +5,7 @@ DATABASE_URL = "sqlite:///./chores.db"
 engine = create_engine(
     DATABASE_URL, 
     connect_args={"check_same_thread": False}, 
-    echo=True
+    echo=False
 )
 
 def create_db_and_tables():
