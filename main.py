@@ -17,11 +17,14 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://10.0.0.146:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://10.0.0.146:3000", "https://danilagurin.com", "https://www.danilagurin.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+
 
 # Register the rate limiter
 app.state.limiter = limiter
