@@ -223,6 +223,34 @@ def test_create_chore_requires_auth(client):
     assert res.status_code == 401
 
 
+def test_invite_and_register_child_flow(client, setup_users):
+    set_client_auth(client, "parent")
+    res = client.post("/users/invite")
+    assert res.status_code == 200
+    invite_code = res.json()["invite_code"]
+
+    child_payload = {
+        "invite_code": invite_code,
+        "password": "childpassword123",
+        "display_name": "New Child"
+    }
+    reg_res = client.post("/auth/register/child", json=child_payload)
+    assert reg_res.status_code == 201
+    assert "access_token" in reg_res.cookies
+
+
+def test_parent_manages_children(client, setup_users):
+    set_client_auth(client, "parent")
+    
+    res = client.get("/users")
+    assert res.status_code == 200
+    assert len(res.json()) >= 1
+    
+    child_id = setup_users["child"].id
+    del_res = client.delete(f"/users/{child_id}")
+    assert del_res.status_code == 200
+    
+
 def test_invalid_token_rejected(client):
     res = client.get(
         "/auth/me",
