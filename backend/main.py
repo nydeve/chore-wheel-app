@@ -5,6 +5,7 @@ from sqlmodel import Session, select
 from database import engine, get_session, create_db_and_tables
 from models import User, Chore, Reward
 from routes import router as auth_router
+from roles import require_parent, require_child, get_current_user
 
 from slowapi.errors import RateLimitExceeded
 from rate_limit import limiter, rate_limit_handler
@@ -42,7 +43,7 @@ def get_chores(session: Session = Depends(get_session)):
 
 #make sure to at depends on user
 @app.post("/chores")
-def create_chore(chore: Chore, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)):
+def create_chore(chore: Chore, parent: User = Depends(require_parent), session: Session = Depends(get_session)):
     session.add(chore)
     session.commit()
     session.refresh(chore)
