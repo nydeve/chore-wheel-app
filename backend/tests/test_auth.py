@@ -48,14 +48,25 @@ def client():
 def setup_users(session):
     pwd = hash_password("securepassword123")
     
-    parent = User(email="parent@test.com", hashed_password=pwd, role=UserRole.PARENT, display_name="Parent")
-    child = User(email="child@test.com", hashed_password=pwd, role=UserRole.CHILD, display_name="Child")
-    
+    parent = User(
+        email="parent@test.com", 
+        hashed_password=pwd, 
+        role=UserRole.PARENT, 
+        display_name="Parent")
     session.add(parent)
+    session.commit()
+    session.refresh(parent) 
+
+    child = User(
+        email="child@test.com", 
+        hashed_password=pwd, 
+        role=UserRole.CHILD, 
+        display_name="Child", 
+        parent_id=parent.id 
+    )
+    
     session.add(child)
     session.commit()
-    # Refresh to get IDs
-    session.refresh(parent)
     session.refresh(child)
     return {"parent": parent, "child": child}
 
@@ -244,7 +255,10 @@ def test_parent_manages_children(client, setup_users):
     
     res = client.get("/users")
     assert res.status_code == 200
-    assert len(res.json()) >= 1
+    
+    children = res.json()
+    assert len(children) == 1
+    assert children[0]["display_name"] == "Child"
     
     child_id = setup_users["child"].id
     del_res = client.delete(f"/users/{child_id}")
