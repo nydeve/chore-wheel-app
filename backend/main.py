@@ -49,10 +49,13 @@ def create_chore(chore: Chore, current_user: User = Depends(get_current_user), s
     return chore
 
 @app.put("/chores/{chore_id}/complete")
-def complete_chore(chore_id: int, session: Session = Depends(get_session)):
+def complete_chore(chore_id: int, child: User = Depends(require_child), session: Session = Depends(get_session)):
     chore = session.get(Chore, chore_id)
     if not chore:
         raise HTTPException(status_code=404, detail="Chore not found")
+
+    if chore.user_id != child.id:
+        raise HTTPException(status_code=403, detail="Not your chore!")
     
     chore.status = "pending_approval"
     session.add(chore)
@@ -60,7 +63,7 @@ def complete_chore(chore_id: int, session: Session = Depends(get_session)):
     return {"message": f"Chore {chore_id} sent for approval"}
 
 @app.put("/chores/{chore_id}/approve")
-def approve_chore(chore_id: int, session: Session = Depends(get_session)):
+def approve_chore(chore_id: int, parent: User = Depends(require_parent), session: Session = Depends(get_session)):
     chore = session.get(Chore, chore_id)
     if not chore or chore.status != "pending_approval":
         raise HTTPException(status_code=400, detail="Invalid chore state")
