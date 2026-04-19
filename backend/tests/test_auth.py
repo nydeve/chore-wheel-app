@@ -138,19 +138,20 @@ def test_cannot_approve_before_complete():
 def test_child_cannot_approve_own_chore():
     set_client_auth(client, "child")
 
-    response = client.put("/chores/1/approve") 
+    res = client.post("/chores", json={"title": "Test", "points_worth": 10})
+    chore_id = res.json()["id"]
     
+    response = client.put(f"/chores/{chore_id}/approve") 
     assert response.status_code == 403
 
 
 def test_child_cannot_assign_chore():
     set_client_auth(client, "child")
 
-    res = client.post("/chores", json={"title": "Test"})
+    res = client.post("/chores", json={"title": "Test", "points_worth": 10})
     chore_id = res.json()["id"]
     
     response = client.patch(f"/chores/{chore_id}/assign/2")
-    
     assert response.status_code == 403
 
 
