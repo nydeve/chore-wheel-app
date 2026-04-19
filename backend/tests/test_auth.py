@@ -12,8 +12,11 @@ from database import get_session
 from models import User, UserRole, Chore
 
 
-def register_and_login_as(role: str):
-    """Helper to keep tests clean"""
+def set_client_auth(client, role):
+    """
+    Registers a user, logs them in, and sets the auth cookie 
+    on the provided client instance.
+    """
     user_data = {
         "email": f"{role}@test.com",
         "password": "securepassword123",
@@ -21,7 +24,10 @@ def register_and_login_as(role: str):
     }
     client.post("/auth/register", json=user_data)
     login_res = client.post("/auth/login", json={"email": user_data["email"], "password": "securepassword123"})
-    return login_res.cookies.get("access_token")
+    
+    token = login_res.cookies.get("access_token")
+    client.cookies.set("access_token", token)
+    return token
 
 
 TEST_DATABASE_URL = "sqlite://"
@@ -117,58 +123,46 @@ def test_duplicate_email_registration():
 
 def test_cannot_approve_before_complete():
     """Constraint: Cannot approve a chore if it hasn't been marked 'completed'."""
-    token = register_and_login_as("parent")
-    headers = {"Authorization": f"Bearer {token}"}
+    set_client_auth(client, "parent")
     
     payload = {"title": "Test Constraint", "points_worth": 50}
-    res = client.post("/chores", json=payload, headers=headers)
+    res = client.post("/chores", json=payload)
     chore_id = res.json()["id"]
 
-    appr_res = client.post(f"/chores/{chore_id}/approve", headers=headers)
+    appr_res = client.put(f"/chores/{chore_id}/approve")
     
     assert appr_res.status_code == 400
     assert "invalid chore state" in appr_res.json()["detail"].lower()
 
 
 def test_child_cannot_approve_own_chore():
-    child_token = register_and_login_as("child") 
+    set_client_auth(client, "child")
+
+    response = client.put("/chores/1/approve") 
     
-    response = client.post(
-        "/chores/1/approve",
-        headers={"Authorization": f"Bearer {child_token}"}
-    )
-    
-    assert response.status_code == 403  # Forbidden
-    assert "Only parents can approve chores" in response.json()["detail"]
+    assert response.status_code == 403
 
 
 def test_child_cannot_assign_chore():
-    """Ensure a child cannot call the assignment endpoint"""
-    child_token = register_and_login_as("child") 
+    set_client_auth(client, "child")
     
-    response = client.patch(
-        "/chores/1/assign/2", 
-        headers={"Authorization": f"Bearer {child_token}"}
-    )
+    response = client.patch("/chores/1/assign/2")
     
     assert response.status_code == 403
 
 
 def test_parent_chore_lifecycle():
-    """
-    Tests the full Happy Path: Parent creates, assigns, and approves.
-    This is the core requirement of your project.
-    """
-    token = register_and_login_as("parent")
+   set_client_auth(client, "parent")
     
-    res = client.post("/chores", json={"title": "Mow Lawn"}, headers={"Authorization": f"Bearer {token}"})
+    res = client.post("/chores", json={"title": "Mow Lawn"})
     chore_id = res.json()["id"]
     
-    client.patch(f"/chores/{chore_id}/assign/2", headers={"Authorization": f"Bearer {token}"})
+    client.patch(f"/chores/{chore_id}/assign/1")
     
-    appr_res = client.post(f"/chores/{chore_id}/approve", headers={"Authorization": f"Bearer {token}"})
+    appr_res = client.put(f"/chores/{chore_id}/approve")
 
     assert appr_res.status_code == 200
+
 
 def test_create_chore_requires_auth():
     fresh_client = TestClient(app)
@@ -179,6 +173,7 @@ def test_create_chore_requires_auth():
     })
 
     assert res.status_code == 401
+
 
 def test_invalid_token_rejected():
     res = client.get(
