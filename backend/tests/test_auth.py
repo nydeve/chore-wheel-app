@@ -152,7 +152,7 @@ def test_child_cannot_assign_chore():
 
 
 def test_parent_chore_lifecycle():
-   set_client_auth(client, "parent")
+    set_client_auth(client, "parent")
     
     res = client.post("/chores", json={"title": "Mow Lawn"})
     chore_id = res.json()["id"]
