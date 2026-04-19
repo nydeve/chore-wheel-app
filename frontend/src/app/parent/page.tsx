@@ -8,12 +8,16 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { PlusCircle, CheckCircle, XCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function ParentDashboardPage() {
   const [childrenData, setChildrenData] = useState<any[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
   const [pendingRewards, setPendingRewards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [rejectChoreId, setRejectChoreId] = useState<number | null>(null);
+  const [rejectFeedback, setRejectFeedback] = useState("");
 
   useEffect(() => {
     loadData();
@@ -49,10 +53,11 @@ export default function ParentDashboardPage() {
     }
   };
 
-  const handleRejectChore = async (id: number) => {
-    if (!confirm("Are you sure you want to reject this and send it back to the child?")) return;
+  const handleRejectChore = async () => {
+    if (!rejectChoreId || !rejectFeedback.trim()) return;
     try {
-      await api.chores.reject(id);
+      await api.chores.reject(rejectChoreId, rejectFeedback);
+      setRejectChoreId(null);
       loadData();
     } catch(e: any) {
       alert("Rejection failed: " + e.message);
@@ -157,7 +162,7 @@ export default function ParentDashboardPage() {
                      <Button onClick={() => handleApproveChore(approval.id)} size="sm" className="flex-1 bg-green-600 hover:bg-green-700 border-none text-white h-7 text-xs font-bold">
                        <CheckCircle className="w-3 h-3 mr-1" /> Approve
                      </Button>
-                     <Button onClick={() => handleRejectChore(approval.id)} size="sm" className="bg-red-100 hover:bg-red-200 text-red-700 border-none h-7 text-xs font-bold px-3">
+                     <Button onClick={() => { setRejectChoreId(approval.id); setRejectFeedback(""); }} size="sm" className="bg-red-100 hover:bg-red-200 text-red-700 border-none h-7 text-xs font-bold px-3">
                        <XCircle className="w-3 h-3" />
                      </Button>
                   </div>
@@ -210,6 +215,29 @@ export default function ParentDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={!!rejectChoreId} onOpenChange={(open) => !open && setRejectChoreId(null)}>
+        <DialogContent className="sm:max-w-md border-t-8 border-t-red-500">
+          <DialogHeader>
+            <DialogTitle>Needs Fixes</DialogTitle>
+            <DialogDescription>
+              Provide specific feedback so your child knows exactly what to fix before resubmitting.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+             <textarea 
+                placeholder="Needs more work... (e.g. You missed a spot on the kitchen counter!)" 
+                value={rejectFeedback}
+                onChange={(e) => setRejectFeedback(e.target.value)}
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm resize-none h-24"
+             />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setRejectChoreId(null)}>Cancel</Button>
+            <Button type="button" onClick={handleRejectChore} disabled={!rejectFeedback.trim()} className="bg-red-500 hover:bg-red-600 font-bold text-white">Send Back</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

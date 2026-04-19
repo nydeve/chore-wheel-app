@@ -148,19 +148,22 @@ def complete_chore(chore_id: int, req: CompleteRequest = None, session: Session 
     session.commit()
     return {"message": f"Chore {chore_id} sent for approval"}
 
+class RejectRequest(BaseModel):
+    feedback: str
+
 @app.put("/chores/{chore_id}/reject", tags=["Chores"], summary="Reject a completed chore")
-def reject_chore(chore_id: int, session: Session = Depends(get_session)):
+def reject_chore(chore_id: int, req: RejectRequest, session: Session = Depends(get_session)):
     """Rejects a chore, sending it back to 'assigned' status and notifying the child."""
     chore = session.get(Chore, chore_id)
     if not chore or chore.status != "pending_approval":
         raise HTTPException(status_code=400, detail="Invalid chore state")
     
     chore.status = "assigned"
-    chore.submission_notes = None # Clear old notes
+    chore.submission_notes = f"Rejected: {req.feedback}" # Force feedback to replace notes
     
     # Notify Child
     if chore.user_id:
-        n = Notification(user_id=chore.user_id, title="Chore Rejected", message=f"Your parent asked you to redo '{chore.title}'.")
+        n = Notification(user_id=chore.user_id, title="Chore Rejected", message=f"Your parent asked you to redo '{chore.title}' with feedback: {req.feedback}")
         session.add(n)
         
     session.add(chore)

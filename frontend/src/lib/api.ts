@@ -60,7 +60,7 @@ export const api = {
     update: (id: number, data: any) => fetchAPI(`/chores/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     complete: (id: number, notes?: string) => fetchAPI(`/chores/${id}/complete`, { method: "PUT", body: JSON.stringify({ notes }) }),
     approve: (id: number) => fetchAPI(`/chores/${id}/approve`, { method: "PUT" }),
-    reject: (id: number) => fetchAPI(`/chores/${id}/reject`, { method: "PUT" }),
+    reject: (id: number, feedback: string) => fetchAPI(`/chores/${id}/reject`, { method: "PUT", body: JSON.stringify({ feedback }) }),
     delete: (id: number) => fetchAPI(`/chores/${id}`, { method: "DELETE" }),
     spin: (userId: number) => fetchAPI("/chores/spin", { method: "POST", body: JSON.stringify({ user_id: userId }) }),
   },

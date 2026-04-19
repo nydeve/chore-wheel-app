@@ -22,6 +22,9 @@ export default function ParentChoresPage() {
   const [newDueDate, setNewDueDate] = useState("");
   const [newRecurrence, setNewRecurrence] = useState("none");
 
+  const [rejectChoreId, setRejectChoreId] = useState<number | null>(null);
+  const [rejectFeedback, setRejectFeedback] = useState("");
+
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -109,10 +112,11 @@ export default function ParentChoresPage() {
     }
   };
 
-  const handleRejectChore = async (id: number) => {
-    if (!confirm("Are you sure you want to reject this and send it back to the child?")) return;
+  const handleRejectChore = async () => {
+    if (!rejectChoreId || !rejectFeedback.trim()) return;
     try {
-      await api.chores.reject(id);
+      await api.chores.reject(rejectChoreId, rejectFeedback);
+      setRejectChoreId(null);
       loadData();
     } catch(e: any) {
       alert("Rejection failed: " + e.message);
@@ -163,7 +167,7 @@ export default function ParentChoresPage() {
                   id="recurrence" 
                   value={newRecurrence}
                   disabled={newAssignee === "unassigned"}
-                  onChange={e => setNewAssignee === "unassigned" ? setNewRecurrence("none") : setNewRecurrence(e.target.value)}
+                  onChange={e => newAssignee === "unassigned" ? setNewRecurrence("none") : setNewRecurrence(e.target.value)}
                   className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm col-span-3 disabled:opacity-50 disabled:bg-gray-100"
                 >
                   <option value="none">{newAssignee === "unassigned" ? "Does not repeat (Unassigned Only)" : "Does not repeat"}</option>
@@ -194,7 +198,30 @@ export default function ParentChoresPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+
+      <Dialog open={!!rejectChoreId} onOpenChange={(open) => !open && setRejectChoreId(null)}>
+        <DialogContent className="sm:max-w-md border-t-8 border-t-red-500">
+          <DialogHeader>
+            <DialogTitle>Needs Fixes</DialogTitle>
+            <DialogDescription>
+              Provide specific feedback so your child knows exactly what to fix before resubmitting.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+             <textarea 
+                placeholder="Needs more work... (e.g. You missed a spot on the kitchen counter!)" 
+                value={rejectFeedback}
+                onChange={(e) => setRejectFeedback(e.target.value)}
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm resize-none h-24"
+             />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setRejectChoreId(null)}>Cancel</Button>
+            <Button type="button" onClick={handleRejectChore} disabled={!rejectFeedback.trim()} className="bg-red-500 hover:bg-red-600 font-bold text-white">Send Back</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
 
       <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
@@ -254,7 +281,7 @@ export default function ParentChoresPage() {
                           <Button variant="outline" onClick={() => handleApproveChore(chore.id)} size="sm" className="h-8 text-green-600 border-green-200 hover:bg-green-50 mr-1">
                             <CheckCircle className="h-4 w-4 mr-1" /> Approve
                           </Button>
-                          <Button variant="outline" onClick={() => handleRejectChore(chore.id)} size="icon" className="h-8 w-8 text-red-600 border-red-200 hover:bg-red-50 mr-2" title="Reject Chore">
+                          <Button variant="outline" onClick={() => { setRejectChoreId(chore.id); setRejectFeedback(""); }} size="icon" className="h-8 w-8 text-red-600 border-red-200 hover:bg-red-50 mr-2" title="Reject Chore">
                             <XCircle className="h-4 w-4" />
                           </Button>
                         </>

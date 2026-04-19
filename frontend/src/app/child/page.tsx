@@ -182,7 +182,15 @@ export default function ChildDashboardPage() {
                       </div>
                     </div>
                     {chore.status === "assigned" && (
-                      <Button size="sm" onClick={() => openSubmitDialog(chore)} variant="outline" className="font-bold border-2 border-green-200 text-green-700 hover:bg-green-50">Mark Done</Button>
+                      <div className="flex flex-col items-end gap-2">
+                        {chore.submission_notes && chore.submission_notes.startsWith("Rejected:") && (
+                          <div className="text-[11px] text-red-600 bg-red-50 p-2 rounded border border-red-100 max-w-[200px] text-right font-medium leading-tight">
+                             <span className="font-black block mb-0.5 uppercase tracking-wider text-[9px] text-red-400">Needs Fixes</span>
+                             "{chore.submission_notes.replace("Rejected:", "").trim()}"
+                          </div>
+                        )}
+                        <Button size="sm" onClick={() => openSubmitDialog(chore)} variant="outline" className="font-bold border-2 border-green-200 text-green-700 hover:bg-green-50">Mark Done</Button>
+                      </div>
                     )}
                     {chore.status === "pending_approval" && (
                       <span className="text-xs font-bold text-yellow-600 bg-yellow-100 px-2 py-1 rounded">Waiting for Review</span>
