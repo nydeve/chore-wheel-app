@@ -145,8 +145,11 @@ def test_child_cannot_approve_own_chore():
 
 def test_child_cannot_assign_chore():
     set_client_auth(client, "child")
+
+    res = client.post("/chores", json={"title": "Test"})
+    chore_id = res.json()["id"]
     
-    response = client.patch("/chores/1/assign/2")
+    response = client.patch(f"/chores/{chore_id}/assign/2")
     
     assert response.status_code == 403
 
@@ -158,6 +161,7 @@ def test_parent_chore_lifecycle():
     chore_id = res.json()["id"]
     
     client.patch(f"/chores/{chore_id}/assign/1")
+    client.put(f"/chores/{chore_id}/complete")
     
     appr_res = client.put(f"/chores/{chore_id}/approve")
 
