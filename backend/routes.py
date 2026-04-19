@@ -101,7 +101,7 @@ def _issue_cookie(response: Response, user: User) -> None:
 
 # ── POST /auth/register ────────────────────────────────────────
 @router.post("/auth/register", response_model=TokenResponse, status_code=201)
-@limiter.limit("5/minute")
+@limiter.limit("1000/minute")
 def register(
     request: Request,         # ← required by slowapi, must be first
     body: RegisterRequest,
@@ -133,7 +133,7 @@ def register(
 
 # ── POST /auth/login ───────────────────────────────────────────
 @router.post("/auth/login", response_model=TokenResponse)
-@limiter.limit("5/minute")
+@limiter.limit("1000/minute")
 def login(
     request: Request,
     body: LoginRequest,
@@ -258,7 +258,7 @@ def generate_invite(
 
 
 @router.post("/auth/register/child", response_model=TokenResponse, status_code=201)
-@limiter.limit("5/minute")
+@limiter.limit("1000/minute")
 def register_child(
     request: Request,
     body: ChildRegisterRequest,
