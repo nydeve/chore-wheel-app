@@ -82,7 +82,7 @@ def approve_chore(chore_id: int, parent: User = Depends(require_parent), session
     return {"message": "Chore approved and points awarded"}
 
 @app.delete("/chores/{chore_id}")
-def delete_chore(chore_id: int, session: Session = Depends(get_session)):
+def delete_chore(chore_id: int, parent: User = Depends(require_parent), session: Session = Depends(get_session)):
     chore = session.get(Chore, chore_id)
     if not chore:
         raise HTTPException(status_code=404, detail="Chore not found")
@@ -94,7 +94,7 @@ def delete_chore(chore_id: int, session: Session = Depends(get_session)):
 
 #new
 @app.patch("/chores/{chore_id}/assign/{user_id}")
-def assign_chore(chore_id: int, user_id: int, session: Session = Depends(get_session)):
+def assign_chore(chore_id: int, user_id: int, parent: User = Depends(require_parent), session: Session = Depends(get_session)):
     chore = session.get(Chore, chore_id)
     user = session.get(User, user_id)
     if not chore or not user:
