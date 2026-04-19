@@ -43,6 +43,7 @@ def override_get_session():
 
 app.dependency_overrides[get_session] = override_get_session
 client = TestClient(app)
+app.state.limiter = None
 
 @pytest.fixture(name="session", autouse=True)
 def session_fixture():
