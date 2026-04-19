@@ -1,6 +1,9 @@
+import os
 from sqlmodel import SQLModel, create_engine, Session
 
-DATABASE_URL = "sqlite:///./chores.db"
+# Dynamically create the data directory if it doesn't exist to prevent Docker mount crashes
+os.makedirs("./data", exist_ok=True)
+DATABASE_URL = "sqlite:///./data/chores.db"
 
 engine = create_engine(
     DATABASE_URL, 
