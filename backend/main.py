@@ -40,8 +40,9 @@ def get_chores(session: Session = Depends(get_session)):
     results = session.exec(statement).all()
     return results
 
+#make sure to at depends on user
 @app.post("/chores")
-def create_chore(chore: Chore, session: Session = Depends(get_session)):
+def create_chore(chore: Chore, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)):
     session.add(chore)
     session.commit()
     session.refresh(chore)
