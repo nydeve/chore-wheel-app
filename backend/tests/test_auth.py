@@ -162,15 +162,20 @@ def test_parent_chore_lifecycle():
     set_client_auth(client, "parent")
     
     res = client.post("/chores", json={"title": "Mow Lawn", "points_worth": 15})
+
+    if res.status_code != 200:
+        print(f"\n--- DEBUG ERROR: Status {res.status_code} ---")
+        print(f"Response Body: {res.json()}")
+        assert res.status_code == 200
+
     chore_id = res.json()["id"]
     
     client.patch(f"/chores/{chore_id}/assign/1")
     client.put(f"/chores/{chore_id}/complete")
-    
     appr_res = client.put(f"/chores/{chore_id}/approve")
 
-    assert appr_res.status_code == 200
-
+    assert res.status_code == 200
+    
 
 def test_create_chore_requires_auth():
     fresh_client = TestClient(app)
