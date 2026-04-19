@@ -8,7 +8,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
  */
 export async function fetchAPI(endpoint: string, options: RequestInit = {}) {
   const headers = new Headers(options.headers || {});
-  
+
   // Note: JWT token should be handled via HTTP-only cookies based on the requirements, 
   // so we might not need to manually attach it here if the browser handles it.
   // We specify credentials: "include" to ensure cookies are sent.
@@ -23,12 +23,12 @@ export async function fetchAPI(endpoint: string, options: RequestInit = {}) {
 
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-    
+
     // Automatically parse JSON if the response is OK
     if (response.ok) {
       // Check if there is content to parse (e.g 204 No Content doesn't have body)
       if (response.status !== 204) {
-         return await response.json();
+        return await response.json();
       }
       return null;
     }
@@ -36,7 +36,7 @@ export async function fetchAPI(endpoint: string, options: RequestInit = {}) {
     // Handle standard HTTP errors
     const errorData = await response.json().catch(() => null);
     throw new Error(errorData?.detail || `API Request failed with status ${response.status}`);
-    
+
   } catch (error) {
     console.error("API Fetch Error:", error);
     throw error;
