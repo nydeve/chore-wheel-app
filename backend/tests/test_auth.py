@@ -144,14 +144,14 @@ def test_duplicate_email_registration(client):
     assert "already exists" in response.json()["detail"]
 
 
-def test_cannot_approve_before_complete(client):
+def test_cannot_approve_before_complete(client, setup_users):
     set_client_auth(client, "parent")
 
     res = client.post("/chores", json={
         "title": "Test Constraint",
         "points_worth": 50
     })
-    assert res.status_code == 200, res.json()
+    assert res.status_code == 200
 
     chore_id = res.json()["id"]
 
@@ -162,17 +162,14 @@ def test_cannot_approve_before_complete(client):
 
 
 def test_child_cannot_approve_own_chore(client, setup_users):
-    set_client_auth(client, "child")
-
-    res = client.post("/chores", json={
-        "title": "Test",
-        "points_worth": 10
-    })
-    assert res.status_code == 200, res.json()
-
+    set_client_auth(client, "parent")
+    res = client.post("/chores", json={"title": "Test", "points_worth": 10})
     chore_id = res.json()["id"]
 
+    set_client_auth(client, "child")
+    
     response = client.put(f"/chores/{chore_id}/approve")
+    
     assert response.status_code == 403
 
 
@@ -197,19 +194,20 @@ def test_child_cannot_assign_chore(client, setup_users):
 
 def test_parent_chore_lifecycle(client, setup_users):
     set_client_auth(client, "parent")
-
     res = client.post("/chores", json={
         "title": "Mow Lawn",
-        "points_worth": 15
+        "points_worth": 45
     })
-    assert res.status_code == 200, res.json()
-
     chore_id = res.json()["id"]
-    parent_id = setup_users["parent"].id
+    child_id = setup_users["child"].id
 
-    client.patch(f"/chores/{chore_id}/assign/{parent_id}")
-    client.put(f"/chores/{chore_id}/complete")
+    client.patch(f"/chores/{chore_id}/assign/{child_id}")
 
+    set_client_auth(client, "child")
+    comp_res = client.put(f"/chores/{chore_id}/complete")
+    assert comp_res.status_code == 200
+
+    set_client_auth(client, "parent")
     appr_res = client.put(f"/chores/{chore_id}/approve")
     assert appr_res.status_code == 200
 
