@@ -85,3 +85,17 @@ def delete_chore(chore_id: int, session: Session = Depends(get_session)):
     session.delete(chore)
     session.commit()
     return {"message": "Chore deleted completely"}
+
+
+#new
+@app.patch("/chores/{chore_id}/assign/{user_id}")
+def assign_chore(chore_id: int, user_id: int, session: Session = Depends(get_session)):
+    chore = session.get(Chore, chore_id)
+    user = session.get(User, user_id)
+    if not chore or not user:
+        raise HTTPException(status_code=404, detail="Chore or User not found")
+    
+    chore.user_id = user_id
+    session.add(chore)
+    session.commit()
+    return {"message": "Chore assigned successfully"}
