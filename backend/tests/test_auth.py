@@ -44,21 +44,19 @@ def client():
     return TestClient(app)
 
 
-@pytest.fixture(autouse=True)
-def setup_users(client):
-    # Create parent
-    client.post("/auth/register", json={
-        "email": "parent@test.com",
-        "password": "securepassword123",
-        "display_name": "Parent"
-    })
-
-    # Create child
-    client.post("/auth/register", json={
-        "email": "child@test.com",
-        "password": "securepassword123",
-        "display_name": "Child"
-    })
+@pytest.fixture
+def setup_users(session):
+    # Directly inject into the DB, skipping the API logic
+    parent = User(email="parent@test.com", password="securepassword123", role="parent", display_name="Parent")
+    child = User(email="child@test.com", password="securepassword123", role="child", display_name="Child")
+    
+    session.add(parent)
+    session.add(child)
+    session.commit()
+    # Refresh to get IDs
+    session.refresh(parent)
+    session.refresh(child)
+    return {"parent": parent, "child": child}
 
 
 # Helper ---------------------------
@@ -118,7 +116,7 @@ def test_auth_me_protected_route(client):
     assert response.status_code == 401
 
 
-def test_logout_behavior(client):
+def test_logout_behavior(client, setup_users):
     client.post("/auth/login", json={
         "email": "parent@test.com",
         "password": "securepassword123"
@@ -162,7 +160,7 @@ def test_cannot_approve_before_complete(client):
     assert "invalid chore state" in appr_res.json()["detail"].lower()
 
 
-def test_child_cannot_approve_own_chore(client):
+def test_child_cannot_approve_own_chore(client, setup_users):
     set_client_auth(client, "child")
 
     res = client.post("/chores", json={
@@ -177,7 +175,7 @@ def test_child_cannot_approve_own_chore(client):
     assert response.status_code == 403
 
 
-def test_child_cannot_assign_chore(client, session):
+def test_child_cannot_assign_chore(client, setup_users):
     set_client_auth(client, "parent")
 
     res = client.post("/chores", json={
@@ -188,17 +186,15 @@ def test_child_cannot_assign_chore(client, session):
 
     chore_id = res.json()["id"]
 
-    child_user = session.exec(
-        select(User).where(User.email == "child@test.com")
-    ).first()
+    child_id = setup_users["child"].id
 
     set_client_auth(client, "child")
 
-    response = client.patch(f"/chores/{chore_id}/assign/{child_user.id}")
+    response = client.patch(f"/chores/{chore_id}/assign/{child.id}")
     assert response.status_code == 403
 
 
-def test_parent_chore_lifecycle(client):
+def test_parent_chore_lifecycle(client, setup_users):
     set_client_auth(client, "parent")
 
     res = client.post("/chores", json={
@@ -208,8 +204,9 @@ def test_parent_chore_lifecycle(client):
     assert res.status_code == 200, res.json()
 
     chore_id = res.json()["id"]
+    parent_id = setup_users["parent"].id
 
-    client.patch(f"/chores/{chore_id}/assign/1")
+    client.patch(f"/chores/{chore_id}/assign/{parent_id}")
     client.put(f"/chores/{chore_id}/complete")
 
     appr_res = client.put(f"/chores/{chore_id}/approve")
