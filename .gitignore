@@ -3,3 +3,4 @@ id = "j9xkjd"
 __pycache__/
 *.pyc
 .vscode/
+*.db

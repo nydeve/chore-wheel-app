@@ -41,7 +41,17 @@ The backend handles database relations using SQLite and SQLModel, providing a st
 - pip
 
 ### Running Locally
+```bash
 python3 -m uvicorn main:app --reload
+```
+
+---
+
+## Testing
+
+To run the integration tests and verify the RTM requirements:
+1. Install test dependencies: `pip install pytest httpx`
+2. Run tests: `pytest tests/test_auth.py`
 
 ---
 
